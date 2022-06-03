@@ -1,1 +1,2 @@
-# graph_vis
+# Graph Visualization
+- Try implementing SGD
