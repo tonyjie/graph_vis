@@ -1,4 +1,5 @@
 import scipy.io as io
+import sys
 
 # load the data from the SuiteSparse Matrix Collection format
 #   https://www.cise.ufl.edu/research/sparse/matrices/
@@ -15,6 +16,10 @@ import scipy.sparse.csgraph as csgraph
 # note: if any path length is infinite i.e. we have disconnected subgraphs,
 #       then this cell will work but the rest of the script won't.
 d = csgraph.shortest_path(graph, directed=False, unweighted=True)
+# print(f"d.shape: {d.shape}") # (882, 882)
+# print(f"d: {d}")
+# sys.exit()
+
 
 # show the shortest paths in a heat map.
 # If any squares are white, then infinite paths exist and the algorithm will fail.
@@ -52,9 +57,11 @@ for i in range(num_iter):
     schedule.append(eta(i))
     
 plt.plot(schedule)
+# plt.show()
 
+
+# Iteration Begin
 import random
-
 # initialise an array of 2D positions
 positions = np.random.rand(n, 2)
 
@@ -64,11 +71,10 @@ start = datetime.datetime.now()
 for c in schedule:
     # shuffle the relaxation order
     random.shuffle(constraints)
-    constraints
         
-    for i,j,w in constraints:
+    for idx, (i,j,w) in enumerate(constraints):
         wc = w*c
-        if (wc > 1):
+        if (wc > 1): # if not, there would be nan (super large gradient)
             wc = 1
         
         pq = positions[i] - positions[j]
@@ -77,7 +83,10 @@ for c in schedule:
         # r is the minimum distance each vertex has to move to satisfy the constraint
         r = (d[i,j] - mag) / 2
         m = wc * r * pq/mag
-        
+
+        # if (idx % 10000 == 0):
+        #     print(f"idx[{idx}]: m = {m}")
+
         positions[i] += m
         positions[j] -= m
 
@@ -86,6 +95,9 @@ for c in schedule:
 end = datetime.datetime.now()
 print(end - start)
 
+
+
+# Draw SVG Graph
 from matplotlib import collections as mc
 
 plt.axis('equal')
