@@ -11,7 +11,7 @@ from itertools import combinations
 import sys
 import datetime
 from torch.utils.data import TensorDataset, DataLoader
-
+import argparse
 
 class MyDataset(torch.utils.data.Dataset):
     def __init__(self, d):
@@ -66,7 +66,7 @@ def draw_svg(positions, graph, output_name):
     lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
     ax.add_collection(lc)
 
-    plt.savefig(output_name + '.svg', format='svg', dpi=1000)
+    plt.savefig('output/' + output_name + '.svg', format='svg', dpi=1000)
 
 
 
@@ -87,7 +87,7 @@ def q(t1, t2, dis):
     return torch.mean(w * ((torch.norm((t1 - t2), dim=1) - dis) ** 2))
 
 
-def main():
+def main(args):
     # ========== Load Graph, Get the Ground Truth (shortest distance here) ============
     graph_name = 'qh882'
     mat_data = io.loadmat(graph_name + '.mat')
@@ -108,8 +108,8 @@ def main():
 
     # ========== Determine the annealing schedule (Step Size). Parameter Setting. ===========
     # determine the annealing schedule
-    BATCH_SIZE = 16
-    num_iter = 60
+    BATCH_SIZE = args.batch_size
+    num_iter = args.num_iter
     epsilon = 0.1
 
     eta_max = 1/w_min
@@ -176,4 +176,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Batch SGD Implementation for Graph Drawing")
+    parser.add_argument('--batch_size', type=int, default=1, help='batch size')
+    parser.add_argument('--num_iter', type=int, default=15, help='number of iterations')
+    args = parser.parse_args()
+    print(args)
+    main(args)

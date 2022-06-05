@@ -1,8 +1,12 @@
 # Graph Visualization
+The goal is to get the visualization of the graph.
+- Input: the graph G = (V, E). We can get the *real distance* between each node (here is the shortest distance in the graph). Then we want our visualization graph to be as close as possible to the *real distance* guidance. 
+- Output: each node is assigned a coordinate (X, Y). 
+
 
 ## Code
 - `python graphdraw.py`    
-It would run the original paper's algorithm. It is just simple math without Pytorch implementation. It is not involved with gradient computing. 
+It would run [the original paper's algorithm](https://github.com/jxz12/s_gd2/blob/master/jupyter/main.ipynb). It is just simple math without Pytorch implementation. It is not involved with gradient computing. 
 
 - `python torch_sgd.py`     
 Implement the algorithm in Pytorch. It is fixed to be BATCH_SIZE = 1. The computation should be the same with the original algorithm. The stress function is regarded as the loss function, and `.backward()` is called to get the gradient for each term. Each time we update a pair of nodes. 
@@ -24,18 +28,28 @@ We would evaluate on two aspects:
 
 ### Original Graph Drawing implementation. Iter_num = 15
 - Time: 50.07s
-- Result: `qh882.svg`; Stress = 18736
+- Result: `output/qh882.svg`; Stress = 18736
 
 ### Batch SGD. Batch Size = 1. Iter_num = 15
-- Time: very long
-- Result: `batch_1_iter_15.svg`; Stress = 18741
-
+- Time: 18min 46s
+- Result: `output/batch_1_iter_15.svg`; Stress = 18741
 
 ### Batch SGD. Batch Size = 16. Iter_num = 15
 - Time: 1 min 20s
-- Result: `batch_16_iter_15.svg`; Stress = 45287
+- Result: `output/batch_16_iter_15.svg`; Stress = 45287
 
 ### Batch SGD. Batch Size = 16. Iter_num = 60
 - Time: 5min 10s
-- Result: `batch_16_iter_60.svg`; Stress = 18759
+- Result: `output/batch_16_iter_60.svg`; Stress = 18759
 
+### Batch SGD. Batch Size = 256. Iter_num = 15
+- Time: 12s
+- Stress = 237022
+
+### Batch SGD. Batch Size = 256. Iter_num = 60
+- Time: 44s
+- Stress = 187087
+
+### Batch SGD. Batch Size = 256. Iter_num = 240
+- Time: 3min 7s
+- Stress = 126226
