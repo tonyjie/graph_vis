@@ -139,12 +139,30 @@ def main(args):
     for idx_c, c in enumerate(schedule):
         for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
             # w_choose = torch.min(w) # choose the minimum w in the batch. This is different from the original paper. 
+            # breakpoint()
             wc = w * c
             wc = torch.min(wc, torch.ones_like(wc))
             # if (wc > 1):
             #     wc = 1
-            lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
-            
+            # lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
+
+            lr = torch.zeros((x.shape[0], 1))
+        
+
+            # print(*zip(i, j))
+            # *zip(i, j)[0]
+            lr_value = wc / (4 * w) # vector
+            batch_pair = list(zip(i,j))
+
+            for pair_idx, pair in enumerate(batch_pair): # we give each batch a different LR -> consistent with original paper
+                lr[pair[0]] += lr_value[pair_idx]
+                lr[pair[1]] += lr_value[pair_idx]
+
+            # *** Note that if there's no overlap nodes, above implementation should be the same with original grpah drawing algorithm
+            # *** But if there's overlap nodes: e.g. Batch Size = 2 (pairs): [(x0, x1), (x1, x2)]. x1 is chosen for two times. 
+            # *** Current implementation: x1.grad = (lr(pair0) + lr(pair1)) * (d(pair0) + d(pair1))
+            # *** Original Algorithm: x1.grad = lr(pair0) * d(pair0) + lr(pair1) * d(pair1)
+
             stress = q(x[i], x[j], dis)
             stress.backward()
 
@@ -156,6 +174,7 @@ def main(args):
             # elif (batch_idx == 2001):
             #     sys.exit()
 
+            # breakpoint()
             x.data.sub_(lr * x.grad.data) # lr set to be a vector?
             x.grad.data.zero_()
             
@@ -168,7 +187,7 @@ def main(args):
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, graph, f"batch_{BATCH_SIZE}_iter_{num_iter}")
+    draw_svg(x_np, graph, f"batch_{BATCH_SIZE}_iter_{num_iter}_vec")
     
     # Compute the Total Stress
     stress_total = compute_stress(x_np, d)

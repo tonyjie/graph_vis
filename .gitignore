@@ -1,5 +1,7 @@
 # MyOwnTest
-test.py
+
+# Output Image
+output/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
