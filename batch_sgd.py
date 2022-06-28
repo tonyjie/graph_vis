@@ -1,3 +1,6 @@
+# Compile odgi yourself; odgi from bioconda has some problems
+# Run with command 'env LD_PRELOAD=libjemalloc.so.2 PYTHONPATH=<lib dir of odgi-build> python3 batch_sgd.py --batch_size 1 --num_iter 15'
+
 import odgi
 
 import torch
@@ -61,7 +64,7 @@ class odgiDataset(torch.utils.data.Dataset):
         return id_step_a, id_step_b, w, d
 
     def __len__(self):
-        return sum(self.sizes) * 10
+        return sum(self.sizes) * 10         # similar to odgi default
 
     def get_path(self, idx):
         assert 0 <= idx < self.g.get_path_count()
