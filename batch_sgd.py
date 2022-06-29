@@ -100,14 +100,14 @@ class odgiDataset(torch.utils.data.Dataset):
 
 
 
-def draw_svg(x, y, gdata, output_name):
+def draw_svg(x, gdata, output_name):
     # Draw SVG Graph with edge
     ax = plt.axes()
-    min_x = min(x)
-    max_x = max(x)
+    min_x = min(x[:,0])
+    max_x = max(x[:,0])
     edge_x = 0.1 * (max_x - min_x)
-    min_y = min(y)
-    max_y = max(y)
+    min_y = min(x[:,1])
+    max_y = max(x[:,1])
     edge_y = 0.1 * (max_y - min_y)
     ax.set_xlim(min_x-edge_x, max_x+edge_x)
     ax.set_ylim(min_y-edge_y, max_y+edge_y)
@@ -123,29 +123,29 @@ def draw_svg(x, y, gdata, output_name):
             i = j
             [j] = gdata.get_node_ids_in_path(p, [sidx])
             if i != None:
-                lines.append([[x[i-1],y[i-1]], [x[j-1],y[j-1]]])
+                lines.append([[x[i-1,0],x[i-1,1]], [x[j-1,0],x[j-1,1]]])
 
     lc = mc.LineCollection(lines, linewidths=1, alpha=.5)
     ax.add_collection(lc)
 
-    plt.plot(x,y,marker='o', linestyle='', color='black')
+    plt.plot(x[:,0],x[:,1],marker='o', linestyle='', color='black')
     for i in range(gdata.get_node_count()):
-        plt.text(x[i]+.01, y[i]+.01, i+1)
+        plt.text(x[i,0]+.01, x[i,1]+.01, i+1)
 
     plt.savefig('output/' + output_name + '.svg', format='svg', dpi=1000)
 
 
 
 
-# def compute_stress(vis_pos, real_dis):
-#     # compute the stress function
-#     n = vis_pos.shape[0]
-#     stress = 0
-#     for i in range(n):
-#         for j in range(i):
-#             w = 1 / (real_dis[i,j]**2)
-#             stress += w * (np.linalg.norm(vis_pos[i] - vis_pos[j]) - real_dis[i, j]) ** 2
-#     return stress
+def compute_stress(vis_pos, real_dis):
+    # compute the stress function
+    n = vis_pos.shape[0]
+    stress = 0
+    for i in range(n):
+        for j in range(i):
+            w = 1 / (real_dis[i,j]**2)
+            stress += w * (np.linalg.norm(vis_pos[i] - vis_pos[j]) - real_dis[i, j]) ** 2
+    return stress
 
 def q(t1, t2, dis):
     # one term in the stress function
@@ -184,25 +184,24 @@ def main(args):
     # ========== Initialize the Positions ============
     # positions = np.random.rand(n, 2)
     # x = torch.tensor(positions, requires_grad=True)
-    x = torch.rand(n, requires_grad=True)
-    y = torch.rand(n, requires_grad=True)
+    x = torch.rand([n,2], requires_grad=True)
     # print(f"x.shape: {x.shape}") # (882, 2)
     
     # stress = compute_stress(positions, d)
     # print(f"initial stress: {stress}")
 
-    my_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
+    my_dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)       # is always shuffled anyways
     # ========== Training ============
     start = datetime.datetime.now()
     for idx_c, c in enumerate(schedule):
         lr = 0.4
         loss_fn = torch.nn.MSELoss(reduction='mean')
-        optimizer = torch.optim.SGD([x,y], lr=lr)
+        optimizer = torch.optim.SGD([x], lr=lr)
         for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
             print(idx_c, ": ", batch_idx, " / ", dataset.__len__())
 
-            dx = x[i-1] - x[j-1]
-            dy = y[i-1] - y[j-1]
+            dx = x[i-1,0] - x[j-1,0]
+            dy = x[i-1,1] - x[j-1,1]
             d = torch.sqrt(torch.pow(dx,2) + torch.pow(dy,2))
             dis_ten = torch.tensor([float(dis)])
             loss = loss_fn(d, dis_ten)
@@ -237,11 +236,10 @@ def main(args):
 
     # Draw the Visualization Graph
     x_np = x.detach().numpy()
-    y_np = y.detach().numpy()
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, y_np, dataset, f"out")
+    draw_svg(x_np, dataset, f"out")
 
     # Compute the Total Stress
     # stress_total = compute_stress(x_np, d)
