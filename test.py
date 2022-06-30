@@ -1,20 +1,40 @@
-import enum
 import torch
-from torch.utils.data import TensorDataset, DataLoader
+import torch.nn as nn
+import numpy as np
 
-# inps = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-# tgts = torch.arange(10 * 5, dtype=torch.float32).view(10, 5)
-# dataset = TensorDataset(inps, tgts)
+# class MyModule(nn.Module):
+#     def __init__(self):
+#         super(MyModule, self).__init__()
+#         self.params = nn.ParameterList([nn.Parameter(torch.randn(10, 10)) for i in range(10)])
 
-# dataloader = DataLoader(dataset, batch_size=2, shuffle=True)
+#     def forward(self, x):
+#         # ParameterList can act as an iterable, or be indexed using ints
+#         for i, p in enumerate(self.params):
+#             x = self.params[i // 2].mm(x) + p.mm(x)
+#         return x
 
-# breakpoint()
+# mod = MyModule()
+# # print(mod.parameters())
+# # print(mod.params)
 
-# for batch_ndx, (inps, tgts) in enumerate(dataloader):
-#     print(f"batch_ndx: {batch_ndx}, inps: {inps}, tgts: {tgts}")
+# num_nodes = 882
+# pos = np.random.rand(num_nodes, 2)
+# param = nn.Parameter(torch.from_numpy(pos))
+# print(param)
 
+# a = torch.tensor([10.0, 10.0], requires_grad=True)
+# b = torch.tensor([20.0, 20.0], requires_grad=True)
+
+# F = a * b
+# print(F)
+# F.backward(gradient=torch.tensor([2.0, 1.0]))
+
+# print(a.grad)
+# print(b.grad)
+
+
+num_nodes = 882
+dis = np.random.randn(num_nodes, num_nodes)
 breakpoint()
-a = torch.Tensor([1,2,3,-2])
-b = torch.ones_like(a)
-c = torch.max(a, b)
-print(c)
+dis_torch = torch.from_numpy(dis)
+

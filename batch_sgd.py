@@ -9,12 +9,14 @@ from matplotlib import collections as mc
 from torch import nn
 from itertools import combinations
 import sys
+import os
 import datetime
 from torch.utils.data import TensorDataset, DataLoader
 import argparse
 
+
 class MyDataset(torch.utils.data.Dataset):
-    def __init__(self, d):
+    def __init__(self, d, device):
         n = d.shape[0] # number of nodes
 
         real_dis = []
@@ -38,7 +40,7 @@ class MyDataset(torch.utils.data.Dataset):
         self.i_arr = i_arr
         self.j_arr = j_arr
         self.w_arr = w_arr
-        self.real_dis = real_dis
+        self.real_dis = torch.tensor(real_dis, device=device) # Convert to Torch Tensor
 
         self.w_min = w_min
         self.w_max = w_max
@@ -66,9 +68,7 @@ def draw_svg(positions, graph, output_name):
     lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
     ax.add_collection(lc)
 
-    plt.savefig('output/' + output_name + '.svg', format='svg', dpi=1000)
-
-
+    plt.savefig('data/' + output_name + '.svg', format='svg', dpi=1000)
 
 
 def compute_stress(vis_pos, real_dis):
@@ -81,6 +81,7 @@ def compute_stress(vis_pos, real_dis):
             stress += w * (np.linalg.norm(vis_pos[i] - vis_pos[j]) - real_dis[i, j]) ** 2
     return stress
 
+
 def q(t1, t2, dis):
     # one term in the stress function
     w = 1 / (dis**2)
@@ -88,21 +89,26 @@ def q(t1, t2, dis):
 
 
 def main(args):
+
+    use_cuda = args.cuda and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    print(f"==== Device: {device}; Dataset: {args.input_file} ====")
+
     # ========== Load Graph, Get the Ground Truth (shortest distance here) ============
-    graph_name = 'qh882'
-    mat_data = io.loadmat(graph_name + '.mat')
+    graph_name = os.path.basename(args.input_file).split('.')[0]
+    mat_data = io.loadmat(args.input_file)
     graph = mat_data['Problem']['A'][0][0]
 
     # find the shortest paths using dijkstra's
     # note: if any path length is infinite i.e. we have disconnected subgraphs,
     #       then this cell will work but the rest of the script won't.
     d = csgraph.shortest_path(graph, directed=False, unweighted=True)
-    # print(f"d.shape: {d.shape}") # (882, 882)
+    print(f"d.shape: {d.shape}") # (882, 882)
     # print(f"d: {d}")
     n = d.shape[0] # number of nodes
 
     # ========== Get Constraints and Input Data ============
-    dataset = MyDataset(d)
+    dataset = MyDataset(d, device)
     w_min = dataset.w_min
     w_max = dataset.w_max
 
@@ -127,7 +133,11 @@ def main(args):
 
     # ========== Initialize the Positions ============
     positions = np.random.rand(n, 2)
-    x = torch.tensor(positions, requires_grad=True)
+    x = torch.tensor(positions, requires_grad=True, device=device)
+
+    # breakpoint()
+
+    # x_dev = x.to(device)
     # print(f"x.shape: {x.shape}") # (882, 2)
     
     stress = compute_stress(positions, d)
@@ -139,6 +149,13 @@ def main(args):
     for idx_c, c in enumerate(schedule):
         for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
             # w_choose = torch.min(w) # choose the minimum w in the batch. This is different from the original paper. 
+            
+            # move tensors to device (CANNOT!: This is not TENSOR)
+            # c = c.to(device)
+            # (i, j, w, dis) = (i, j, w, dis).to(device)
+            
+            # dis = dis.to(device)
+
             wc = w * c
             wc = torch.min(wc, torch.ones_like(wc))
             # if (wc > 1):
@@ -156,6 +173,8 @@ def main(args):
             # elif (batch_idx == 2001):
             #     sys.exit()
 
+            breakpoint()
+
             x.data.sub_(lr * x.grad.data) # lr set to be a vector?
             x.grad.data.zero_()
             
@@ -164,11 +183,11 @@ def main(args):
     print(f"Time: {end - start}")
 
     # Draw the Visualization Graph
-    x_np = x.detach().numpy()
+    x_np = x.cpu().detach().numpy()
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, graph, f"batch_{BATCH_SIZE}_iter_{num_iter}")
+    draw_svg(x_np, graph, f"{graph_name}_batch_{BATCH_SIZE}_iter_{num_iter}")
     
     # Compute the Total Stress
     stress_total = compute_stress(x_np, d)
@@ -177,8 +196,11 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batch SGD Implementation for Graph Drawing")
+    parser.add_argument('input_file', type=str, help='input graph name')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size')
     parser.add_argument('--num_iter', type=int, default=15, help='number of iterations')
+    parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
     args = parser.parse_args()
     print(args)
     main(args)
+    

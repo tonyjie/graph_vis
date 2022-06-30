@@ -9,12 +9,13 @@ from matplotlib import collections as mc
 from torch import nn
 from itertools import combinations
 import sys
+import os
 import datetime
 from torch.utils.data import TensorDataset, DataLoader
 import argparse
 
 class MyDataset(torch.utils.data.Dataset):
-    def __init__(self, d):
+    def __init__(self, d, device):
         n = d.shape[0] # number of nodes
 
         real_dis = []
@@ -38,7 +39,7 @@ class MyDataset(torch.utils.data.Dataset):
         self.i_arr = i_arr
         self.j_arr = j_arr
         self.w_arr = w_arr
-        self.real_dis = real_dis
+        self.real_dis = torch.tensor(real_dis, device=device)
 
         self.w_min = w_min
         self.w_max = w_max
@@ -66,7 +67,7 @@ def draw_svg(positions, graph, output_name):
     lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
     ax.add_collection(lc)
 
-    plt.savefig('output/' + output_name + '.svg', format='svg', dpi=1000)
+    plt.savefig('data/' + output_name + '.svg', format='svg', dpi=1000)
 
 
 
@@ -88,9 +89,14 @@ def q(t1, t2, dis):
 
 
 def main(args):
+    use_cuda = args.cuda and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    print(f"==== Device: {device}; Dataset: {args.input_file} ====")
+
     # ========== Load Graph, Get the Ground Truth (shortest distance here) ============
-    graph_name = 'qh882'
-    mat_data = io.loadmat(graph_name + '.mat')
+    # graph_name = 'data/qh882'
+    graph_name = os.path.basename(args.input_file).split('.')[0]
+    mat_data = io.loadmat(args.input_file)
     graph = mat_data['Problem']['A'][0][0]
 
     # find the shortest paths using dijkstra's
@@ -102,7 +108,7 @@ def main(args):
     n = d.shape[0] # number of nodes
 
     # ========== Get Constraints and Input Data ============
-    dataset = MyDataset(d)
+    dataset = MyDataset(d, device)
     w_min = dataset.w_min
     w_max = dataset.w_max
 
@@ -127,7 +133,7 @@ def main(args):
 
     # ========== Initialize the Positions ============
     positions = np.random.rand(n, 2)
-    x = torch.tensor(positions, requires_grad=True)
+    x = torch.tensor(positions, requires_grad=True, device=device)
     # print(f"x.shape: {x.shape}") # (882, 2)
     
     stress = compute_stress(positions, d)
@@ -146,7 +152,7 @@ def main(args):
             #     wc = 1
             # lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
 
-            lr = torch.zeros((x.shape[0], 1))
+            lr = torch.zeros((x.shape[0], 1), device=device)
         
 
             # print(*zip(i, j))
@@ -157,6 +163,9 @@ def main(args):
             for pair_idx, pair in enumerate(batch_pair): # we give each batch a different LR -> consistent with original paper
                 lr[pair[0]] += lr_value[pair_idx]
                 lr[pair[1]] += lr_value[pair_idx]
+
+            # print(f"lr: {lr}")
+            # breakpoint()
 
             # *** Note that if there's no overlap nodes, above implementation should be the same with original grpah drawing algorithm
             # *** But if there's overlap nodes: e.g. Batch Size = 2 (pairs): [(x0, x1), (x1, x2)]. x1 is chosen for two times. 
@@ -183,11 +192,11 @@ def main(args):
     print(f"Time: {end - start}")
 
     # Draw the Visualization Graph
-    x_np = x.detach().numpy()
+    x_np = x.cpu().detach().numpy()
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, graph, f"batch_{BATCH_SIZE}_iter_{num_iter}_vec")
+    draw_svg(x_np, graph, f"{graph_name}_batch_{BATCH_SIZE}_iter_{num_iter}_vec")
     
     # Compute the Total Stress
     stress_total = compute_stress(x_np, d)
@@ -196,8 +205,10 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Batch SGD Implementation for Graph Drawing")
+    parser.add_argument('input_file', type=str, help='input graph name')
     parser.add_argument('--batch_size', type=int, default=1, help='batch size')
     parser.add_argument('--num_iter', type=int, default=15, help='number of iterations')
+    parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
     args = parser.parse_args()
     print(args)
     main(args)

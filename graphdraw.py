@@ -1,11 +1,18 @@
 import scipy.io as io
 import sys
+import argparse
+import os
+
+parser = argparse.ArgumentParser("Graph Drawing SGD Algorithm")
+parser.add_argument("input_file", type=str, help="input graph name")
+args = parser.parse_args()
 
 # load the data from the SuiteSparse Matrix Collection format
 #   https://www.cise.ufl.edu/research/sparse/matrices/
-graph_name = 'qh882'
-mat_data = io.loadmat(graph_name + '.mat')
+# mat_data = io.loadmat(graph_name + '.mat')
+mat_data = io.loadmat(args.input_file)
 graph = mat_data['Problem']['A'][0][0]
+
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,9 +23,9 @@ import scipy.sparse.csgraph as csgraph
 # note: if any path length is infinite i.e. we have disconnected subgraphs,
 #       then this cell will work but the rest of the script won't.
 d = csgraph.shortest_path(graph, directed=False, unweighted=True)
-# print(f"d.shape: {d.shape}") # (882, 882)
+print(f"d.shape: {d.shape}") # (882, 882)
 # print(f"d: {d}")
-# sys.exit()
+
 
 
 # show the shortest paths in a heat map.
@@ -68,7 +75,7 @@ positions = np.random.rand(n, 2)
 import datetime
 start = datetime.datetime.now()
 
-for c in schedule:
+for c_idx, c in enumerate(schedule):
     # shuffle the relaxation order
     random.shuffle(constraints)
         
@@ -90,7 +97,7 @@ for c in schedule:
         positions[i] += m
         positions[j] -= m
 
-    print('.', end='')
+    print(f'Iteration {c_idx} Done')
 
 end = datetime.datetime.now()
 print(end - start)
@@ -113,7 +120,7 @@ for i,j in zip(*graph.nonzero()):
 lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
 ax.add_collection(lc)
 
-plt.savefig(graph_name + '.svg', format='svg', dpi=1000)
+plt.savefig(args.input_file.replace('.mat', '.svg'), format='svg', dpi=1000)
 
 stress = 0
 for i in range(n):
@@ -123,4 +130,4 @@ for i in range(n):
         
         stress += (1/d[i,j]**2) * (d[i,j]-mag)**2
         
-print('stress = {:.0f}'.format(stress))
+print(f'stress = {stress}')

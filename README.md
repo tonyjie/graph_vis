@@ -24,6 +24,11 @@ lr = torch.min(wc / (4 * w))
 x.data.sub_(lr * x.grad.data)
 ```
 
+- `python sgd_wrap_pytorch.py`  
+Update all the node positions each time -> Full Batch Update. The code greatly utilize GPU computation. Run really fast.    
+Can try different optimizers (Adam, SGD) and learning rate scheduler. The code didn't follow the original algorithm. It didn't have a `cap` operation to regulate the learning rate for each pairwise currently. 
+
+
 # Experiments (All on local CPU)
 We would evaluate on two aspects:
 - Time consumption & Iteration times
@@ -60,6 +65,10 @@ We would evaluate on two aspects:
 - Stress = 126226
 
 ## Batch SGD with Vector Learning Rate
+### Batch Size = 1. Iter_num = 15. 
+- Time: 23min 0s
+- Stress: 18732
+
 ### Batch Size = 16. Iter_num = 15. 
 - Time: 3min 13s
 - Stress: 30224
@@ -67,3 +76,68 @@ We would evaluate on two aspects:
 ### Batch Size = 16. Iter_num = 30
 - Time: 6min 10s
 - Stress: 18841
+
+### Batch Size = 256. Iter_num = 15. 
+- Time: 2min 26s
+- Stress: 55679
+
+# Experiments (Server: zhang-capra-xcel)
+## Setup
+### Hardware
+CPU: Intel Xeon Gold 6248R CPU @ 3.00GHz, 48 Cores. 
+GPU: 4 * Nvidia RTX A6000, 48GB
+
+## 1. Dataset: qh882 (num_nodes = 882)
+qh882. Num_nodes = 882.     
+
+###  Original Graph Drawing Python Implementation.
+Iter_num = 15. 
+- Time: 57.7s
+- Stress: 18737
+
+###  Batch SGD.
+Initial Stress = 349943
+
+| Batch Size | Iter_num | Time (CPU) | Stress (CPU) | Time (GPU) | Stress (GPU) | 
+| ---------- | -------- | ---------- | ------------ | ---------- | ------------ |
+| 1          | 15       | too long   |              | too long   | -            | 
+| 4          | 15       | 9min 7s    | 18758        | 17min 38s  | 18797        |
+| 16         | 15       | 2min 45s   | 27883        | 4min 44s   | 34499        |
+| 64         | 15       | 1min 4s    | 171877       | 1min 32s   | 175903       |
+| 256        | 15       | 39s        | 237467       | 45s        | 237673       |
+| 1024       | 15       | 32.7s      | 323677       | 28.2s      | 324485       |
+
+### Batch SGD with Vector Learning Rate. Dataset = qh882 (n=882)
+
+| Batch Size | Iter_num | Time (CPU) | Stress (CPU) | Time (GPU) | Stress (GPU) | 
+| ---------- | -------- | ---------- | ------------ | ---------- | ------------ |
+| 1          | 15       | too long   |              | too long   | -            | 
+| 4          | 15       | 9min 23s   | 18792        | 33min 25s  | 18739        |
+| 16         | 15       | 3min 55s   | 24297        | 8min 18s   | 19037        |
+| 64         | 15       | 2min 32s   | 38572        | 4min 41s   | 40610        |
+| 256        | 15       | 2min 13s   | 39355        | 2min 56s   | 31199        |
+| 1024       | 15       | 2min 18s   | 53263        | 2min 55s   | 61791        |
+
+## 2. Dataset: bcspwr10. Num_nodes = 5300.    
+###  Original Graph Drawing Python Implementation.
+Iter_num = 15. 
+- Time: 35min 48s
+- Stress: 679064
+
+### Batch SGD.
+
+Initial Stress = 13,213,179
+
+| Batch Size | Iter_num | Time (CPU) | Stress (CPU) | Time (GPU) | Stress (GPU) | 
+| ---------- | -------- | ---------- | ------------ | ---------- | ------------ |
+| 1          | 15       | too long   |              | too long   | -            | 
+| 4          | 15       |     | xxxx        |   | xxxx        |
+| 16         | 15       | 102min 35s | 679,289      | 177min 13s | 679,301      |
+| 64         | 15       | 37min 33s  | 2,178,907    |  55min 28s | 1,077,146    |
+| 256        | 15       | 19min 05s  | 6,196,725    | 25min 11   | 6,159,278    |
+| 1024 (weird but true)      | 15       | 46min 59s  |   9,033,926    | 48min 22s  | 9,031,573      |
+
+
+
+
+

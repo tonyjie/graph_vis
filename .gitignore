@@ -1,7 +1,10 @@
-# MyOwnTest
+# Test Script
+script/
+test.py
 
 # Output Image
-output/
+data/
+figures/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
