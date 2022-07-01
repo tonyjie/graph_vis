@@ -2,9 +2,11 @@
 script/
 test.py
 
-# Output Image
+# Data
 data/
+data_pangenome/
 figures/
+out.svg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

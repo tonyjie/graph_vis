@@ -108,13 +108,6 @@ class PlaceEngine(nn.Module):
 
 
 
-#     def forward(self, pos):
-#         '''
-#         @brief Compute objective with current positions
-#         @param 
-#         @return objective value
-#         '''
-
 
 
 def main(args):

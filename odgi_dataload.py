@@ -34,6 +34,7 @@ class odgiDataset(torch.utils.data.Dataset):
 
         self.w_max = 1                                  # w_max when nodes next to each other
         self.w_min = 1 / ((max(self.sizes)-1)**2)       # w_min when nodes on ends of longest path
+        
         return
 
     def __getitem__(self, index): # return i, j, w, dis[i, j]
@@ -239,7 +240,7 @@ def main(args):
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, dataset, f"out")
+    draw_svg(x_np, dataset, f"DRB1-3123-draw")
 
     # Compute the Total Stress
     # stress_total = compute_stress(x_np, d)
