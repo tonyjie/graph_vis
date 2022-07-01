@@ -132,7 +132,7 @@ def draw_svg(x, gdata, output_name):
     for i in range(gdata.get_node_count()):
         plt.text(x[i,0]+.01, x[i,1]+.01, i+1)
 
-    plt.savefig('output/' + output_name + '.svg', format='svg', dpi=1000)
+    plt.savefig('output/' + output_name + '.png', format='png', dpi=1000)
 
 
 
