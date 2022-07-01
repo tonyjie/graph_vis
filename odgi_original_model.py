@@ -34,7 +34,6 @@ class odgiDataset(torch.utils.data.Dataset):
 
         self.w_max = 1                                  # w_max when nodes next to each other
         self.w_min = 1 / ((max(self.sizes)-1)**2)       # w_min when nodes on ends of longest path
-        
         return
 
     def __getitem__(self, index): # return i, j, w, dis[i, j]
@@ -195,31 +194,17 @@ def main(args):
     # ========== Training ============
     start = datetime.datetime.now()
     for idx_c, c in enumerate(schedule):
-        lr = 0.4
-        loss_fn = torch.nn.MSELoss(reduction='mean')
-        optimizer = torch.optim.SGD([x], lr=lr)
         for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
             print(idx_c, ": ", batch_idx, " / ", dataset.__len__())
-
-            dx = x[i-1,0] - x[j-1,0]
-            dy = x[i-1,1] - x[j-1,1]
-            d = torch.sqrt(torch.pow(dx,2) + torch.pow(dy,2))
-            dis_ten = torch.tensor([float(dis)])
-            loss = loss_fn(d, dis_ten)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-
-
             # w_choose = torch.min(w) # choose the minimum w in the batch. This is different from the original paper. 
-            # wc = w * c
-            # wc = torch.min(wc, torch.ones_like(wc))
+            wc = w * c
+            wc = torch.min(wc, torch.ones_like(wc))
             # if (wc > 1):
             #     wc = 1
-            # lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
+            lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
             
-            # stress = q(x[i-1], x[j-1], dis)
-            # stress.backward()
+            stress = q(x[i-1], x[j-1], dis)
+            stress.backward()
 
             # if (batch_idx % 100 == 0):
             #     print(f"i: {i}, j: {j}, w: {w}, dis: {dis}, lr: {lr}, wc: {wc}, stress: {stress}")
@@ -229,8 +214,8 @@ def main(args):
             # elif (batch_idx == 2001):
             #     sys.exit()
 
-            # x.data.sub_(lr * x.grad.data) # lr set to be a vector?
-            # x.grad.data.zero_()
+            x.data.sub_(lr * x.grad.data) # lr set to be a vector?
+            x.grad.data.zero_()
             
     end = datetime.datetime.now()
     print(f"Time: {end - start}")
@@ -240,7 +225,7 @@ def main(args):
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    draw_svg(x_np, dataset, f"lil-draw")
+    draw_svg(x_np, dataset, f"out")
 
     # Compute the Total Stress
     # stress_total = compute_stress(x_np, d)

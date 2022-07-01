@@ -143,6 +143,7 @@ def main(args):
 
     pos_changes = np.zeros((STEPS//DRAW_INTERVAL, num_nodes, 2), dtype=np.float32)
 
+    stress_rec = np.zeros((STEPS//LOG_INTERVAL,), dtype=np.float32)
     # ====== Training ======
     start = datetime.datetime.now()
     for i in range(STEPS):
@@ -151,6 +152,7 @@ def main(args):
 
         if i % LOG_INTERVAL == 0:
             print(f"step {i}/{STEPS}: {stress}")
+            stress_rec[i//LOG_INTERVAL] = stress.item()
 
         if args.draw and i % DRAW_INTERVAL == 0:
             pos = mod.pos.cpu().detach().numpy()
@@ -159,6 +161,12 @@ def main(args):
     end = datetime.datetime.now()
 
     print(f"==== Training time: {end - start}; Step: {STEPS}; Device: {device} ====")
+
+    # === draw learning curve ===
+    fig, ax = plt.subplots()
+    ax.plot(np.linspace(0, STEPS, STEPS//LOG_INTERVAL), stress_rec)
+    plt.savefig(f"{os.path.dirname(args.input_file)}/learning_curve.png")
+
 
     if args.draw:
         draw(pos_changes, graph, os.path.dirname(args.input_file), DRAW_INTERVAL)
