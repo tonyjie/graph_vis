@@ -56,8 +56,8 @@ class odgiDataset(torch.utils.data.Dataset):
             idx_step_b = idx1
         assert idx_step_a < idx_step_b
 
-        d = idx_step_b - idx_step_a
-        w = 1/(d**2)
+        d = float(idx_step_b - idx_step_a)
+        w = 1.0/(d**2)
 
         # get ids of step_a and step_b
         [id_step_a, id_step_b] = self.get_node_ids_in_path(path, [idx_step_a, idx_step_b])
