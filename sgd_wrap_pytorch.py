@@ -2,7 +2,6 @@ import torch
 import scipy.sparse.csgraph as csgraph
 import scipy.io as io
 import numpy as np
-import random
 import matplotlib.pyplot as plt
 
 from matplotlib import collections as mc
@@ -10,19 +9,9 @@ from torch import nn
 import sys
 import os
 import datetime
-from torch.utils.data import TensorDataset, DataLoader
 import argparse
 import imageio
 
-# class StressObj(nn.Module):
-#     '''
-#     @brief Define stress objective function
-#     '''
-#     def __init__(self):
-#         super().__init__()
-    
-#     def forward(self):
-#         pass
 
 def draw(pos_changes, graph, output_dir, DRAW_INTERVAL):
     # remove all the .png file in output_dir
