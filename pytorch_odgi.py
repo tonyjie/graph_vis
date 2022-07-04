@@ -181,8 +181,12 @@ def main(args):
         for idx, step_handle in enumerate(step_handles):
             step_handle_id = g.get_id(step_handle) - 1
             step_id[idx] = step_handle_id
-            point_id[idx*2] = step_handle_id * 2
-            point_id[idx*2+1] = step_handle_id * 2 + 1
+            if g.get_is_reverse(step_handle) == False: # '+' strand
+                point_id[idx*2] = step_handle_id * 2
+                point_id[idx*2+1] = step_handle_id * 2 + 1
+            else:                                      # '-' strand             
+                point_id[idx*2] = step_handle_id * 2 + 1
+                point_id[idx*2+1] = step_handle_id * 2
             step_length[idx] = g.get_length(step_handle)
 
         print(f"step_id: {step_id}")
