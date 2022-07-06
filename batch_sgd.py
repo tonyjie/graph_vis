@@ -1,4 +1,4 @@
-# Compile odgi yourself; odgi from bioconda has some problems
+# Use with odgi branch zhang_research_extended https://github.com/nsmlzl/odgi/tree/zhang_research_extended
 # Run with command 'env LD_PRELOAD=libjemalloc.so.2 PYTHONPATH=<lib dir of odgi-build> python3 batch_sgd.py --batch_size 1 --num_iter 15'
 
 import odgi
@@ -26,6 +26,8 @@ class odgiDataset(torch.utils.data.Dataset):
         assert self.g.min_node_id() == 1
         assert self.g.max_node_id() == self.g.get_node_count()
 
+        self.rnd_node_gen = odgi.RndNodeGenerator(self.g)
+
         self.path_names = []
         self.g.for_each_path_handle(lambda p: self.path_names.append(self.g.get_path_name(p)))
 
@@ -37,31 +39,12 @@ class odgiDataset(torch.utils.data.Dataset):
         return
 
     def __getitem__(self, index): # return i, j, w, dis[i, j]
-        # choose random path
-        # utilization of index for finding specific node combination would be compute intensive
-        path_idx = random.randrange(self.g.get_path_count())
-        path = self.get_path(path_idx)
-
-        # choose random step_a and step_b in path
-        path_size = self.g.get_step_count(path)
-        idx1 = random.randrange(path_size)
-        idx2 = random.randrange(path_size)
-        while (idx1 == idx2):
-            idx2 = random.randrange(path_size)
-        if idx1 < idx2:
-            idx_step_a = idx1
-            idx_step_b = idx2
-        else:
-            idx_step_a = idx2
-            idx_step_b = idx1
-        assert idx_step_a < idx_step_b
-
-        d = float(idx_step_b - idx_step_a)
+        node_pack = self.rnd_node_gen.get_random_nodes_pack()
+        id_node_a = node_pack.get_id_n0()
+        id_node_b = node_pack.get_id_n1()
+        d = float(node_pack.get_path_distance())
         w = 1.0/(d**2)
-
-        # get ids of step_a and step_b
-        [id_step_a, id_step_b] = self.get_node_ids_in_path(path, [idx_step_a, idx_step_b])
-        return id_step_a, id_step_b, w, d
+        return id_node_a, id_node_b, w, d
 
     def __len__(self):
         return sum(self.sizes) * 10         # similar to odgi default
@@ -194,8 +177,9 @@ def main(args):
     # ========== Training ============
     start = datetime.datetime.now()
     for idx_c, c in enumerate(schedule):
+        print("Computing iteration", idx_c+1, "of", num_iter)
         for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
-            print(idx_c, ": ", batch_idx, " / ", dataset.__len__())
+            # print(idx_c, ": ", batch_idx, " / ", dataset.__len__())
             # w_choose = torch.min(w) # choose the minimum w in the batch. This is different from the original paper. 
             wc = w * c
             wc = torch.min(wc, torch.ones_like(wc))
