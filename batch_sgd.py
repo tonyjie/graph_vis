@@ -42,9 +42,11 @@ class odgiDataset(torch.utils.data.Dataset):
         node_pack = self.rnd_node_gen.get_random_nodes_pack()
         id_node_a = node_pack.get_id_n0()
         id_node_b = node_pack.get_id_n1()
-        d = float(node_pack.get_path_distance())
+        d = float(node_pack.get_distance())
         w = 1.0/(d**2)
-        return id_node_a, id_node_b, w, d
+        vis_p_a = node_pack.get_vis_p_n0()
+        vis_p_b = node_pack.get_vis_p_n1()
+        return id_node_a, id_node_b, vis_p_a, vis_p_b, w, d
 
     def __len__(self):
         return sum(self.sizes) * 10         # similar to odgi default
@@ -84,36 +86,21 @@ class odgiDataset(torch.utils.data.Dataset):
 
 
 def draw_svg(x, gdata, output_name):
+    print("drawing visualization")
     # Draw SVG Graph with edge
     ax = plt.axes()
-    min_x = min(x[:,0])
-    max_x = max(x[:,0])
-    edge_x = 0.1 * (max_x - min_x)
-    min_y = min(x[:,1])
-    max_y = max(x[:,1])
-    edge_y = 0.1 * (max_y - min_y)
-    ax.set_xlim(min_x-edge_x, max_x+edge_x)
-    ax.set_ylim(min_y-edge_y, max_y+edge_y)
 
-    lines = []
-    for pidx in range(gdata.get_path_count()):
-        print("drawing path ", pidx)
-        p = gdata.get_path(pidx)
+    xmin = x.min()
+    xmax = x.max()
+    edge = 0.1 * (xmax - xmin)
+    ax.set_xlim(xmin-edge, xmax+edge)
+    ax.set_ylim(xmin-edge, xmax+edge)
 
-        i = None
-        j = None
-        for sidx in range(gdata.get_step_count_in_path(p)):
-            i = j
-            [j] = gdata.get_node_ids_in_path(p, [sidx])
-            if i != None:
-                lines.append([[x[i-1,0],x[i-1,1]], [x[j-1,0],x[j-1,1]]])
+    for p in x:
+        plt.plot(p[:,0], p[:,1], '-', linewidth=1)
 
-    lc = mc.LineCollection(lines, linewidths=1, alpha=.5)
-    ax.add_collection(lc)
-
-    plt.plot(x[:,0],x[:,1],marker='o', linestyle='', color='black')
-    for i in range(gdata.get_node_count()):
-        plt.text(x[i,0]+.01, x[i,1]+.01, i+1)
+    # for i in range(gdata.get_node_count()):
+    #     plt.text(np.mean(x[i,:,0]), np.mean(x[i,:,1]), i+1)
 
     plt.savefig('output/' + output_name + '.png', format='png', dpi=1000)
 
@@ -167,7 +154,7 @@ def main(args):
     # ========== Initialize the Positions ============
     # positions = np.random.rand(n, 2)
     # x = torch.tensor(positions, requires_grad=True)
-    x = torch.rand([n,2], requires_grad=True)
+    x = torch.rand([n,2,2], requires_grad=True)
     # print(f"x.shape: {x.shape}") # (882, 2)
     
     # stress = compute_stress(positions, d)
@@ -178,7 +165,7 @@ def main(args):
     start = datetime.datetime.now()
     for idx_c, c in enumerate(schedule):
         print("Computing iteration", idx_c+1, "of", num_iter)
-        for batch_idx, (i, j, w, dis) in enumerate(my_dataloader): # batch size = 2
+        for batch_idx, (i, j, vis_p_i, vis_p_j, w, dis) in enumerate(my_dataloader): # batch size = 2
             # print(idx_c, ": ", batch_idx, " / ", dataset.__len__())
             # w_choose = torch.min(w) # choose the minimum w in the batch. This is different from the original paper. 
             wc = w * c
@@ -187,7 +174,7 @@ def main(args):
             #     wc = 1
             lr = torch.min(wc / (4 * w)) # really need this "/4" -> check the graph drawing paper 
             
-            stress = q(x[i-1], x[j-1], dis)
+            stress = q(x[i-1,vis_p_i], x[j-1,vis_p_j], dis)
             stress.backward()
 
             # if (batch_idx % 100 == 0):
