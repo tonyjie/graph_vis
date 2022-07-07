@@ -46,10 +46,11 @@ class PlaceEngine(nn.Module):
     @brief Graph 2D Layout Engine. It contains the parameters ([X, Y] coordinates of all nodes) to be updated. 
     '''
 
-    def __init__(self, num_nodes):
+    def __init__(self, num_nodes, LR):
         '''
         @brief initialization
         @param num_nodes: number of nodes in the graph
+        @param LR: learning rate
         '''
         super().__init__()
         self.num_nodes = num_nodes
@@ -59,7 +60,7 @@ class PlaceEngine(nn.Module):
 
         # self.dist = dist # [num_nodes, num_nodes]
         
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=1)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=LR)
         # self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-2)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=10, eta_min=1e-2)
     
@@ -106,6 +107,7 @@ def main(args):
 
 
     STEPS = args.steps
+    LR = args.lr
     DRAW_INTERVAL = args.draw_interval
     LOG_INTERVAL = args.log_interval
 
@@ -126,7 +128,7 @@ def main(args):
     dist = torch.tensor(dist, dtype=torch.float32)
     dist = dist.to(device)
 
-    mod = PlaceEngine(num_nodes)
+    mod = PlaceEngine(num_nodes, LR)
     mod = mod.to(device)
     # print(mod.pos)
 
@@ -171,6 +173,7 @@ if __name__ == "__main__":
     parser.add_argument("input_file", type=str, help="input graph name")    
     # parser.add_argument('--batch_size', type=int, default=1, help='batch size')
     parser.add_argument('--steps', type=int, default=100, help='number of steps')
+    parser.add_argument('--lr', type=float, default=1, help='learning rate')
     parser.add_argument('--log_interval', type=int, default=10, help='log interval')
     parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
     parser.add_argument('--draw', action='store_true', default=False, help='Draw Animation')

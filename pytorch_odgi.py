@@ -10,8 +10,6 @@ from matplotlib import collections as mc
 import datetime
 import argparse
 import imageio
-import scipy.sparse.csgraph as csgraph
-import scipy.io as io
 
 def draw(pos_changes, nonzero_adj, output_dir, DRAW_INTERVAL):
     # remove all the .png file in output_dir
@@ -109,6 +107,7 @@ class PlaceEngine(nn.Module):
 def main(args):
     # Problems: dist(viz point A, viz point B) can vary depending on the diffrent paths. 
     # e.g. dis(A, B) = 2 on Path X; but dis(A, B) = 5 on Path Y. 
+    ZERO_VALUE = 1e-1 # A very small value. It is used when the end of one node is connected to the start of the next node. If set to zero, it will be masked. 
     STEPS = args.steps
     DRAW_INTERVAL = args.draw_interval
     LOG_INTERVAL = args.log_interval
@@ -143,8 +142,12 @@ def main(args):
         for idx, step_handle in enumerate(step_handles):
             step_handle_id = g.get_id(step_handle) - 1
             step_id[idx] = step_handle_id
-            point_id[idx*2] = step_handle_id * 2
-            point_id[idx*2+1] = step_handle_id * 2 + 1
+            if g.get_is_reverse(step_handle) == False: # '+' strand
+                point_id[idx*2] = step_handle_id * 2
+                point_id[idx*2+1] = step_handle_id * 2 + 1
+            else:                                      # '-' strand             
+                point_id[idx*2] = step_handle_id * 2 + 1
+                point_id[idx*2+1] = step_handle_id * 2
         
         print(f"point_id: {point_id}")
         for i in range(len(point_id) - 1):
@@ -199,7 +202,7 @@ def main(args):
                 if i < j:
                     pair_dist = np.sum(step_length[(i+1)//2 : (j+1)//2])
                     if pair_dist == 0: # end of one node is connected to the start of the next node. If set to zero, it will be masked. 
-                        pair_dist = 1e-1 # set a very small value
+                        pair_dist = ZERO_VALUE # set a very small value
                     Dist[pi, pj] = pair_dist
                     # print(f"{i}, {j}: {step_length[(i+1)//2 : (j+1)//2]} -> {pair_dist}")
         return Dist
