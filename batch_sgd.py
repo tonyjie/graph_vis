@@ -196,6 +196,7 @@ def main(args):
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
+    odgi.generate_layout_file(x_np, "output/" + args.file + ".lay", dataset.g)
     draw_svg(x_np, dataset, f"out")
 
     # Compute the Total Stress
