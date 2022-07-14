@@ -59,20 +59,9 @@ class OdgiDataloader:
         return id_node_a, id_node_b, vis_p_a, vis_p_b, w, d
 
     def get_random_node_numpy_batch(self) :
-        i_np = np.empty(self.batch_size, dtype=np.int64)
-        j_np = np.empty(self.batch_size, dtype=np.int64)
-        vis_i_np = np.empty(self.batch_size, dtype=np.int64)
-        vis_j_np = np.empty(self.batch_size, dtype=np.int64)
+        (i_np, j_np, vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size)
         w_np = np.empty(self.batch_size, dtype=np.float)
-        d_np = np.empty(self.batch_size, dtype=np.float)
-        for idx in range(self.batch_size):
-            (i, j, vis_i, vis_j, w, d) = self.get_random_pair()
-            i_np[idx] = i
-            j_np[idx] = j
-            vis_i_np[idx] = vis_i
-            vis_j_np[idx] = vis_j
-            w_np[idx] = w
-            d_np[idx] = d
+        w_np = 1.0 / (d_np**2)
         return i_np, j_np, vis_i_np, vis_j_np, w_np, d_np
 
     def set_batch_size(self, batch_size):
