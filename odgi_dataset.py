@@ -47,25 +47,6 @@ class OdgiDataset(torch.utils.data.Dataset):
     def get_path_count(self):
         return odgi_get_path_count(self.g)
 
-    # def get_node_ids_in_path(self, path, sidx_list):
-    #     assert isinstance(sidx_list, list)
-    #     prev_idx = None
-    #     ids = []
-    #     step = self.g.path_begin(path)
-    #     for sidx in sidx_list:
-    #         delta = sidx
-    #         if prev_idx != None:
-    #             delta = delta - prev_idx
-    #         prev_idx = sidx
-
-    #         for i in range(delta):
-    #             assert self.g.has_next_step(step) == True
-    #             step = self.g.get_next_step(step)
-    #         ids.append(self.g.get_id(self.g.get_handle_of_step(step)))
-    #     return ids
-
-    # def get_step_count_in_path(self, path):
-    #     return self.g.get_step_count(path)
 
 class OdgiInterface:
     def generate_layout_file(graph, coords, file_name):
