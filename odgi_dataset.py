@@ -2,11 +2,12 @@
 # Run with command 'env LD_PRELOAD=libjemalloc.so.2 PYTHONPATH=<lib dir of odgi-build> python3 batch_sgd.py --batch_size 1 --num_iter 15'
 
 import torch
+import numpy as np
 from odgi_ffi import *
 
 class OdgiTorchDataset(torch.utils.data.Dataset):
     def __init__(self, file_name):
-        self.data = OdgiDataset(file_name)
+        self.data = OdgiDataloader(file_name)
         self.w_max = self.data.w_max
         self.w_min = self.data.w_min
         return
@@ -21,11 +22,14 @@ class OdgiTorchDataset(torch.utils.data.Dataset):
         return self.data.get_node_count()
 
     def get_graph(self):
-        return self.data.g
+        return self.data.get_graph()
 
 
-class OdgiDataset:
+class OdgiDataloader:
     def __init__(self, file_name):
+        self.batch_size = 1
+        self.batch_counter = 0
+
         self.g = odgi_load_graph(file_name)
 
         assert odgi_min_node_id(self.g) == 1
@@ -54,11 +58,46 @@ class OdgiDataset:
         vis_p_b = odgi_RNP_get_vis_p_n1(node_pack)
         return id_node_a, id_node_b, vis_p_a, vis_p_b, w, d
 
+    def get_random_node_numpy_batch(self) :
+        i_np = np.empty(self.batch_size, dtype=np.int64)
+        j_np = np.empty(self.batch_size, dtype=np.int64)
+        vis_i_np = np.empty(self.batch_size, dtype=np.int64)
+        vis_j_np = np.empty(self.batch_size, dtype=np.int64)
+        w_np = np.empty(self.batch_size, dtype=np.float)
+        d_np = np.empty(self.batch_size, dtype=np.float)
+        for idx in range(self.batch_size):
+            (i, j, vis_i, vis_j, w, d) = self.get_random_pair()
+            i_np[idx] = i
+            j_np[idx] = j
+            vis_i_np[idx] = vis_i
+            vis_j_np[idx] = vis_j
+            w_np[idx] = w
+            d_np[idx] = d
+        return i_np, j_np, vis_i_np, vis_j_np, w_np, d_np
+
+    def set_batch_size(self, batch_size):
+        self.batch_size = batch_size
+
     def steps_in_iteration(self):
         return self.global_length * 10         # similar to odgi default
 
     def get_node_count(self):
         return odgi_get_node_count(self.g)
+
+    def get_graph(self):
+        return self.g
+
+    def __iter__(self):
+        self.batch_counter = 0
+        return self
+
+    def __next__(self):
+        if (self.batch_counter * self.batch_size) >= self.steps_in_iteration() :
+            raise StopIteration
+        else :
+            self.batch_counter = self.batch_counter + 1
+            (i_np, j_np, vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
+            return torch.from_numpy(i_np), torch.from_numpy(j_np), torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
 
 
 class OdgiInterface:
