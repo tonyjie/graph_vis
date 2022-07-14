@@ -11,7 +11,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 
-from odgi_dataset import OdgiDataset, OdgiInterface
+from odgi_dataset import OdgiTorchDataset, OdgiInterface
 
 
 def draw_svg(x, gdata, output_name):
@@ -54,7 +54,7 @@ def q(t1, t2, dis):
 
 def main(args):
     # # ========== Load Graph, Get Constraints ============
-    dataset = OdgiDataset(args.file)
+    dataset = OdgiTorchDataset(args.file)
 
     n = dataset.get_node_count()
 
@@ -125,7 +125,7 @@ def main(args):
     # print(f"x_np.shape: {x_np.shape}")
     # print(f"x_np: {x_np}")
 
-    OdgiInterface.generate_layout_file(dataset.g, x_np, "output/" + args.file + ".lay")
+    OdgiInterface.generate_layout_file(dataset.get_graph(), x_np, "output/" + args.file + ".lay")
     draw_svg(x_np, dataset, f"out")
 
     # Compute the Total Stress

@@ -4,7 +4,27 @@
 import torch
 from odgi_ffi import *
 
-class OdgiDataset(torch.utils.data.Dataset):
+class OdgiTorchDataset(torch.utils.data.Dataset):
+    def __init__(self, file_name):
+        self.data = OdgiDataset(file_name)
+        self.w_max = self.data.w_max
+        self.w_min = self.data.w_min
+        return
+
+    def __getitem__(self, index): # return i, j, w, dis[i, j]
+        return self.data.get_random_pair()
+
+    def __len__(self):
+        return self.data.steps_in_iteration()         # similar to odgi default
+
+    def get_node_count(self):
+        return self.data.get_node_count()
+
+    def get_graph(self):
+        return self.data.g
+
+
+class OdgiDataset:
     def __init__(self, file_name):
         self.g = odgi_load_graph(file_name)
 
@@ -16,14 +36,15 @@ class OdgiDataset(torch.utils.data.Dataset):
         self.path_names = []
         odgi_for_each_path_handle(self.g, lambda p: self.path_names.append(odgi_get_path_name(self.g, p)))
 
-        self.sizes = []
-        odgi_for_each_path_handle(self.g, lambda p: self.sizes.append(odgi_get_step_in_path_count(self.g, p)))
+        sizes = []
+        odgi_for_each_path_handle(self.g, lambda p: sizes.append(odgi_get_step_in_path_count(self.g, p)))
+        self.global_length = sum(sizes)
 
         self.w_max = 1                                  # w_max when nodes next to each other
-        self.w_min = 1 / ((max(self.sizes)-1)**2)       # w_min when nodes on ends of longest path
+        self.w_min = 1 / ((max(sizes)-1)**2)       # w_min when nodes on ends of longest path
         return
 
-    def __getitem__(self, index): # return i, j, w, dis[i, j]
+    def get_random_pair(self):
         node_pack = odgi_get_random_node_pack(self.rnd_node_gen)
         id_node_a = odgi_RNP_get_id_n0(node_pack)
         id_node_b = odgi_RNP_get_id_n1(node_pack)
@@ -33,19 +54,11 @@ class OdgiDataset(torch.utils.data.Dataset):
         vis_p_b = odgi_RNP_get_vis_p_n1(node_pack)
         return id_node_a, id_node_b, vis_p_a, vis_p_b, w, d
 
-    def __len__(self):
-        return sum(self.sizes) * 10         # similar to odgi default
-
-    def get_path(self, idx):
-        assert 0 <= idx < self.get_path_count()
-        path_name = self.path_names[idx]
-        return odgi_get_path_handle(self.g, path_name)
+    def steps_in_iteration(self):
+        return self.global_length * 10         # similar to odgi default
 
     def get_node_count(self):
         return odgi_get_node_count(self.g)
-
-    def get_path_count(self):
-        return odgi_get_path_count(self.g)
 
 
 class OdgiInterface:
