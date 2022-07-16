@@ -1,11 +1,13 @@
 # Test Script
 script/
 testing/
+outdated_code/
 
 # Data
 data/
 data_pangenome/
 figures/
+output/
 *.svg
 
 # Byte-compiled / optimized / DLL files

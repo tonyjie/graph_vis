@@ -5,31 +5,40 @@ The goal is to get the visualization of the graph.
 
 
 ## Code
-- `python graphdraw.py`    
-It would run [the original paper's algorithm](https://github.com/jxz12/s_gd2/blob/master/jupyter/main.ipynb). It is just simple math without Pytorch implementation. It is not involved with gradient computing. 
+- `graphdraw.py`
+    - [the original paper's algorithm](https://github.com/jxz12/s_gd2/blob/master/jupyter/main.ipynb). It is just simple math without Pytorch implementation. It is not involved with gradient computing.
+- `torch_sgd.py`
+    - Implement the algorithm in Pytorch. It is fixed to be BATCH_SIZE = 1. The computation should be the same with the original algorithm. The stress function is regarded as the loss function, and `.backward()` is called to get the gradient for each term. Each time we update a pair of nodes. 
+- `batch_sgd.py`
+    - Pytorch implementation that supports any BATCH_SIZE. Note that the original algorithm is designed only for BATCH_SIZE = 1, and has some specific constraints. To make it reasonable to apply to BATCH_SIZE > 1, I made some modifications, mainly on the learning_rate. When BATCH_SIZE = 1, it should be the same sas `torch_sgd.py` and `graphdraw.py`. 
+    - Very slow. 
+- `batch_sgd_vector_lr.py`
+    - Pytorch implementation that supports any BATCH_SIZE. The learning rate is set to be a vector, that aims to be consistent with the original algorithm setting, because each pair of nodes have different learning rate based on their distance. 
+        ```python
+        wc = w * c
+        wc = torch.min(wc, torch.ones_like(wc))
+        lr = torch.min(wc / (4 * w))
+        x.data.sub_(lr * x.grad.data)
+        ```
+    - Very slow. 
+- `full_graph_sgd.py`
+    - Full Graph update. It just compute the overall stress function, and compute the gradient and update. It partly works on the general graph (some SuitSparse testcases): can generate reasonable viz graph, but the stress is larger than the optimal one. 
+    - Super fast. 
+    - Can try different optimizers (Adam, SGD) and learning rate scheduler. The code didn't follow the original algorithm. It didn't have a `cap` operation to regulate the learning rate for each pairwise currently. 
+- `odgi_dataset.py`, `odgi_batch_sgd.py`
+    - Extend `batch_sgd.py` on ODGI dataloader to support real pangenome input. For BATCH_SIZE = 1, it can generate recognizable results for DRB1-3123. 
+    - Slow. ~40 minutes for DRB1-3123. 
+- `odgi_full_graph_sgd.py`
+    - Full Graph update. Extend `full_graph_sgd.py` on pangenome input. Use ODGI's Python API to compute the Distance Matrix for each paths. But the algorithm doesn't converge currently, though the training process is fast. 
 
-- `python torch_sgd.py`     
-Implement the algorithm in Pytorch. It is fixed to be BATCH_SIZE = 1. The computation should be the same with the original algorithm. The stress function is regarded as the loss function, and `.backward()` is called to get the gradient for each term. Each time we update a pair of nodes. 
-
-- `python batch_sgd.py`     
-Pytorch implementation that supports any BATCH_SIZE. Note that the original algorithm is designed only for BATCH_SIZE = 1, and has some specific constraints. To make it reasonable to apply to BATCH_SIZE > 1, I made some modifications, mainly on the learning_rate. 
-
-- `python batch_sgd_vector_lr.py`       
-Pytorch implementation that supports any BATCH_SIZE. The learning rate is set to be a vector, that aims to be consistent with the original BATCH_SIZE = 1 setting. (But there might be some bugs. )
-
-```python
-wc = w * c
-wc = torch.min(wc, torch.ones_like(wc))
-lr = torch.min(wc / (4 * w))
-x.data.sub_(lr * x.grad.data)
-```
-
-- `python sgd_wrap_pytorch.py`  
-Update all the node positions each time -> Full Batch Update. The code greatly utilize GPU computation. Run really fast.    
-Can try different optimizers (Adam, SGD) and learning rate scheduler. The code didn't follow the original algorithm. It didn't have a `cap` operation to regulate the learning rate for each pairwise currently. 
 
 
-# Experiments (All on local CPU)
+
+
+
+
+
+# Experiments for `batch_sgd.py` (All on local CPU)
 We would evaluate on two aspects:
 - Time consumption & Iteration times
 - Quality: graph visualization qualitatively; stress quantitatively. 
@@ -81,7 +90,7 @@ We would evaluate on two aspects:
 - Time: 2min 26s
 - Stress: 55679
 
-# Experiments (Server: zhang-capra-xcel)
+# Experiments `batch_sgd.py` (Server: zhang-capra-xcel)
 ## Setup
 ### Hardware
 CPU: Intel Xeon Gold 6248R CPU @ 3.00GHz, 48 Cores. 

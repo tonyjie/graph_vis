@@ -1,4 +1,4 @@
-# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi/lib python pytorch_odgi.py
+# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi/lib python odgi_full_graph_sgd.py data_pangenome/lil/lil.og --cuda --save --steps=1000 --draw --draw_interval=50
 import odgi
 import torch
 import numpy as np
@@ -11,10 +11,9 @@ import datetime
 import argparse
 import imageio
 
-def draw(pos_changes, nonzero_adj, output_dir, DRAW_INTERVAL):
+def draw(pos_changes, output_dir, DRAW_INTERVAL):
     # remove all the .png file in output_dir
     # os.system(f"rm {output_dir}/*.png")
-
     frames = list()
     for idx, positions in enumerate(pos_changes):
         # Draw Graph
@@ -25,10 +24,10 @@ def draw(pos_changes, nonzero_adj, output_dir, DRAW_INTERVAL):
         ax.set_xlim(min(positions[:,0])-1, max(positions[:,0])+1)
         ax.set_ylim(min(positions[:,1])-1, max(positions[:,1])+1)
 
-        lines = []
+        # lines = []
 
-        for i, j in zip(*nonzero_adj):
-            lines.append([positions[i], positions[j]])
+        # for i, j in zip(*nonzero_adj):
+        #     lines.append([positions[i], positions[j]])
 
         # for i in range(nonzero_adj.shape[0]):
         #     start, end = nonzero_adj[i][0], nonzero_adj[i][1]
@@ -36,13 +35,8 @@ def draw(pos_changes, nonzero_adj, output_dir, DRAW_INTERVAL):
         #     lines.append([positions[start], positions[end]])
         
 
-        lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
-        ax.add_collection(lc)
-
-        # plot the node and text
-        # plt.plot(positions[:,0], positions[:,1], marker='o')
-        # for i in range(positions.shape[0] // 2):
-        #     plt.text((positions[2*i,0]+positions[2*i+1,0])/2, (positions[2*i,1]+positions[2*i+1,1])/2, str(i))
+        for i in np.arange(0, positions.shape[0], 2): # [0, 2, 4, 6, ...]
+            plt.plot(positions[i:i+2,0], positions[i:i+2,1], linestyle='-', linewidth=1)
 
         fig.savefig(f"{output_dir}/{idx * DRAW_INTERVAL}.png")
         frames.append(imageio.imread(f"{output_dir}/{idx * DRAW_INTERVAL}.png"))
@@ -105,16 +99,13 @@ class PlaceEngine(nn.Module):
 
 
 def main(args):
-    # Problems: dist(viz point A, viz point B) can vary depending on the diffrent paths. 
-    # e.g. dis(A, B) = 2 on Path X; but dis(A, B) = 5 on Path Y. 
-    ZERO_VALUE = 1e-1 # A very small value. It is used when the end of one node is connected to the start of the next node. If set to zero, it will be masked. 
+    ZERO_VALUE = 1e-9 # A very small value. It is used when the end of one node is connected to the start of the next node. If set to zero, it will be masked. 
     STEPS = args.steps
     DRAW_INTERVAL = args.draw_interval
     LOG_INTERVAL = args.log_interval
 
     g = odgi.graph()
     g.load(args.input_file)
-    # g.load('data_pangenome/DRB1-3123/DRB1-3123.og')
 
     num_nodes = g.get_node_count() * 2 # number of visualization points: 2 * graph nodes. One node has 2 ends. 
     num_paths = g.get_path_count()
@@ -124,44 +115,7 @@ def main(args):
 
     print(f"==== input_file: {args.input_file}; num_nodes: {num_nodes}; num_paths: {num_paths}; Device: {device} ====")
 
-    # Get an adjacency matrix [num_nodes, num_nodes]. 
-    # If there's a connection for two points in any path, it is True. 
-    # Used for drawing the graph. Determine if we draw a line between two points.
-    adj_matrix = np.zeros((num_nodes, num_nodes)) # all False initially
 
-    def fill_adj_matrix(path_handle):
-        '''
-        @brief fill the adj_matrix. If there's a connection for two points in the path, set it as True. 
-        @param path_handle: handle of the path
-        '''
-        step_handles = []
-        g.for_each_step_in_path(path_handle, lambda s: step_handles.append(g.get_handle_of_step(s)))
-        
-        step_id = np.zeros(len(step_handles), dtype=int)
-        point_id = np.zeros(2 * len(step_handles), dtype=int)
-        for idx, step_handle in enumerate(step_handles):
-            step_handle_id = g.get_id(step_handle) - 1
-            step_id[idx] = step_handle_id
-            if g.get_is_reverse(step_handle) == False: # '+' strand
-                point_id[idx*2] = step_handle_id * 2
-                point_id[idx*2+1] = step_handle_id * 2 + 1
-            else:                                      # '-' strand             
-                point_id[idx*2] = step_handle_id * 2 + 1
-                point_id[idx*2+1] = step_handle_id * 2
-        
-        print(f"point_id: {point_id}")
-        for i in range(len(point_id) - 1):
-            adj_matrix[point_id[i], point_id[i+1]] = True
-            # print(f"{point_id[i]}, {point_id[i+1]} are connected")
-
-    g.for_each_path_handle(lambda p: fill_adj_matrix(p)) # can be combined into `get_dist`
-    
-    nonzero_adj = np.nonzero(adj_matrix) # (start, end). 
-    # nonzero_adj[0] is a numpy array (length = num_nodes), record the starting point. 
-    # nonzero_adj[1] is a numpy array (length = num_nodes), record the ending point.
-    
-    num_lines = len(nonzero_adj[0])
-    print(f"num_lines: {num_lines}")
 
     Dist_paths = list() # Distance matrix for different paths
 
@@ -208,46 +162,16 @@ def main(args):
         return Dist
 
 
-
-    
-    
     if args.save:
         Dist_paths_arr = np.load(os.path.dirname(args.input_file) + '/Dist_paths.npy')
     else:
         g.for_each_path_handle(lambda p: Dist_paths.append(get_dist(p)))
         Dist_paths_arr = np.array(Dist_paths)
-        np.save(os.path.dirname(args.input_file) + '/Dist_paths.npy', Dist_paths_arr)
+        # np.save(os.path.dirname(args.input_file) + '/Dist_paths.npy', Dist_paths_arr)
 
     print(Dist_paths_arr.shape) # [num_paths, num_nodes, num_nodes]
 
     print("====== Finish Computing Distance Matrix for different paths ======")
-    # [Problem] connected code length is zero, it doesn't take into consideration when training! e.g. Node1 and Node2 are connected. 
-    
-    # [Problem] some .gfa file has abnormal pattern. DRB1-3123: point_id: [9906 9907 9904 ...   23   10   11]
-
-    
-
-
-
-
-
-
-
-
-
-
-    # mat_data = io.loadmat(args.input_file)
-    # graph = mat_data['Problem']['A'][0][0]
-    # dist = csgraph.shortest_path(graph, directed=False, unweighted=True)
-    # print(f"dist.shape: {dist.shape}") # (5, 5)
-    # print(f"dist: {dist}")
-    
-
-    # num_nodes = dist.shape[0]
-
-    # dis = np.random.randn(num_nodes, num_nodes)
-    # dist = torch.tensor(dist, dtype=torch.float32)
-    # dist = dist.to(device)
 
     
     dist_paths = torch.tensor(Dist_paths_arr, dtype=torch.float32)
@@ -263,8 +187,9 @@ def main(args):
     # ====== Training ======
     start = datetime.datetime.now()
     for i in range(STEPS):
-        # switch distance matrix between paths different paths in each step
+        # switch distance matrix between paths different paths in each step ----> can't converge......
         stress = mod.gradient_step(dist_paths[i % num_paths])
+        # stress = mod.gradient_step(dist_paths[0]) # don't switch
         mod.scheduler.step() # learning rate scheduler
 
         if i % LOG_INTERVAL == 0:
@@ -286,75 +211,18 @@ def main(args):
 
 
     if args.draw:
-        draw(pos_changes, nonzero_adj, os.path.dirname(args.input_file), DRAW_INTERVAL)
+        draw(pos_changes, os.path.dirname(args.input_file), DRAW_INTERVAL)
 
     
 
+# [Problem] connected code length is zero, it doesn't take into consideration when training! e.g. Node1 and Node2 are connected. 
+# [Solution] set ZERO_VALUE = 1e-9 (same as ODGI) for two connected viz points. But this will also lead to convergence problem. 
 
+# [Problem] some .gfa file has abnormal pattern. DRB1-3123: point_id: [9906 9907 9904 ...   23   10   11]
+# [Solution] consider the `reverse` pattern. This is also considered in the ODGI's C++ implementation. If we use the C++ API, we can easily reuse their code. 
 
-
-
-
-
-
-# Problems: dist(viz point A, viz point B) can vary depending on the diffrent paths. 
-# e.g. dis(A, B) = 2 on Path X; but dis(A, B) = 5 on Path Y. 
-
-# g = odgi.graph()
-# g.load("tiny_pangenome.og")
-# # g.load('data_pangenome/DRB1-3123/DRB1-3123.og')
-
-# num_nodes = g.get_node_count() * 2 # number of visualization points: 2 * graph nodes. One node has 2 ends. 
-# print(f"num_nodes: {num_nodes}")
-
-# num_paths = g.get_path_count()
-# print(f"num_paths: {num_paths}")
-
-# Dist_paths = list() # Distance matrix for different paths
-
-# def get_dist(path_handle):
-#     '''
-#     @brief Get the distance matrix for a path.
-#         The path has N steps, each step has 2 ends -> N*2 viz points are defined. 
-#     @param path_handle: Path handle
-#     @return: Distance matrix
-#     '''
-    
-#     step_handles = []
-#     g.for_each_step_in_path(path_handle, lambda s: step_handles.append(g.get_handle_of_step(s)))
-    
-#     step_length = np.zeros(len(step_handles), dtype=int)
-#     step_id = np.zeros(len(step_handles), dtype=int)
-#     point_id = np.zeros(2 * len(step_handles), dtype=int)    
-
-#     for idx, step_handle in enumerate(step_handles):
-#         step_handle_id = g.get_id(step_handle) - 1
-#         step_id[idx] = step_handle_id
-#         point_id[idx*2] = step_handle_id * 2
-#         point_id[idx*2+1] = step_handle_id * 2 + 1
-#         step_length[idx] = g.get_length(step_handle)
-
-#     print(f"step_id: {step_id}")
-#     print(f"step_length: {step_length}")
-
-#     Dist = np.zeros((num_nodes, num_nodes)) # Distance Matrix
-
-#     for i, pi in enumerate(point_id):
-#         for j, pj in enumerate(point_id):
-#             if i < j:
-#                 # print(f"{i}, {j}: {step_length[i//2 : j//2]}")
-#                 pair_dist = np.sum(step_length[i//2 : j//2])
-
-#                 Dist[pi, pj] = pair_dist
-#     return Dist
-
-
-# g.for_each_path_handle(lambda p: Dist_paths.append(get_dist(p)))
-
-# print(Dist_paths)
-
-# Dist_paths_arr = np.array(Dist_paths)
-# print(Dist_paths_arr.shape)
+# [Problem] dist(viz point A, viz point B) can vary depending on the diffrent paths. e.g. dis(A, B) = 2 on Path X; but dis(A, B) = 5 on Path Y. 
+# [Solution] Just record Distance Matrix for each paths. 
 
 
 
@@ -374,43 +242,43 @@ if __name__ == "__main__":
     main(args)
 
 
+'''
+# Get an adjacency matrix [num_nodes, num_nodes]. 
+# If there's a connection for two points in any path, it is True. 
+# [Outdated] Used for drawing the graph. Determine if we draw a line between two points. (It is no longer used. )
+adj_matrix = np.zeros((num_nodes, num_nodes)) # all False initially
 
+def fill_adj_matrix(path_handle):
+    
+    # @brief fill the adj_matrix. If there's a connection for two points in the path, set it as True. 
+    # @param path_handle: handle of the path
+    
+    step_handles = []
+    g.for_each_step_in_path(path_handle, lambda s: step_handles.append(g.get_handle_of_step(s)))
+    
+    step_id = np.zeros(len(step_handles), dtype=int)
+    point_id = np.zeros(2 * len(step_handles), dtype=int)
+    for idx, step_handle in enumerate(step_handles):
+        step_handle_id = g.get_id(step_handle) - 1
+        step_id[idx] = step_handle_id
+        if g.get_is_reverse(step_handle) == False: # '+' strand
+            point_id[idx*2] = step_handle_id * 2
+            point_id[idx*2+1] = step_handle_id * 2 + 1
+        else:                                      # '-' strand             
+            point_id[idx*2] = step_handle_id * 2 + 1
+            point_id[idx*2+1] = step_handle_id * 2
+    
+    print(f"point_id: {point_id}")
+    for i in range(len(point_id) - 1):
+        adj_matrix[point_id[i], point_id[i+1]] = True
+        # print(f"{point_id[i]}, {point_id[i+1]} are connected")
 
+# g.for_each_path_handle(lambda p: fill_adj_matrix(p)) # can be combined into `get_dist`
 
+# nonzero_adj = np.nonzero(adj_matrix) # (start, end). 
+# nonzero_adj[0] is a numpy array (length = num_nodes), record the starting point. 
+# nonzero_adj[1] is a numpy array (length = num_nodes), record the ending point.
 
-# ========= Try on ODGI python interface ==========
-# g = odgi.graph()
-# g.load("tiny_pangenome.og")
-
-# path_names = []
-# g.for_each_path_handle(lambda p: path_names.append(g.get_path_name(p)))
-
-# sizes = []
-# g.for_each_path_handle(lambda p: sizes.append(g.get_step_count(p)))
-
-# path_handle = []
-# g.for_each_path_handle(lambda p: path_handle.append(p))
-
-# step_handles = []
-# g.for_each_step_in_path(path_handle[0], lambda s: step_handles.append(g.get_handle_of_step(s)))
-
-# step_length = []
-
-
-# sequence = ""
-# for step_handle in step_handles:
-#     sequence += g.get_sequence(step_handle)
-#     step_length.append(g.get_length(step_handle))
-
-# g.for_each_handle(lambda h: print(f"{g.get_length(h)}: {g.get_sequence(h)}"))
-
-# print(f"path_names: {path_names}")
-# print(f"sizes: {sizes}")
-# print(f"path_handle: {path_handle}")
-# print(f"step_handle: {step_handles}")
-
-# print(f"sequence: {sequence}")
-# print(f"step_length: {step_length}")
-
-# for step_handle in step_handles:
-#     print(g.get_id(step_handle)) # 1 3 5 6 8 9 11 12 14 15
+# num_lines = len(nonzero_adj[0])
+# print(f"num_lines: {num_lines}")
+'''

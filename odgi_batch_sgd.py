@@ -1,16 +1,12 @@
 # Use with odgi branch zhang_research_extended https://github.com/nsmlzl/odgi/tree/zhang_research_extended
-# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_ffi_batch_sgd.py --file <input_file> --batch_size 1 --num_iter 30
-import random
+# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_batch_sgd.py --file <input_file> --batch_size 1 --num_iter 30
 import datetime
 import argparse
-
 import torch
-from torch.utils.data import DataLoader
-import numpy as np
 import os
-
+import numpy as np
 import matplotlib.pyplot as plt
-
+from torch.utils.data import DataLoader
 from odgi_dataset import OdgiTorchDataset, OdgiInterface
 
 

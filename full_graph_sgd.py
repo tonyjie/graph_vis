@@ -1,3 +1,5 @@
+# python full_graph_sgd.py figures/qh882/qh882.mat --steps=400 --log_interval=10 --cuda --draw --draw_interval=10
+
 import torch
 import scipy.sparse.csgraph as csgraph
 import scipy.io as io
@@ -169,7 +171,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="SGD Implementation for Graph Drawing using Pytorch")
+    parser = argparse.ArgumentParser(description="Full Graph SGD Update Implementation for Graph Drawing using Pytorch")
     parser.add_argument("input_file", type=str, help="input graph name")    
     # parser.add_argument('--batch_size', type=int, default=1, help='batch size')
     parser.add_argument('--steps', type=int, default=100, help='number of steps')
