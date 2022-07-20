@@ -129,6 +129,7 @@ def main(args):
         print("Computing iteration", iteration + 1, "of", num_iter, eta)
         
         for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data):
+            # print("batch", batch_idx, "of", (float(data.steps_in_iteration()) / float(data.batch_size)))
             # pytorch model as close as possible to odgi implementation
 
             # compute weight w in PyTorch model (here); don't use computed weight of dataloader
