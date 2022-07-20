@@ -9,7 +9,6 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from odgi_dataset import OdgiTorchDataset, OdgiInterface
 
-
 def draw_svg(x, gdata, output_name):
     print("drawing visualization")
     # Draw SVG Graph with edge

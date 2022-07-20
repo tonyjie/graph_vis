@@ -1,5 +1,5 @@
-# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi/lib python odgi_full_graph_sgd.py data_pangenome/lil/lil.og --cuda --save --steps=1000 --draw --draw_interval=50
-import odgi
+# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_full_graph_sgd.py data_pangenome/lil/lil.og --cuda --save --steps=1000 --draw --draw_interval=50
+# import odgi
 import torch
 import numpy as np
 from torch import nn
@@ -10,6 +10,9 @@ from matplotlib import collections as mc
 import datetime
 import argparse
 import imageio
+# from odgi_ffi import * # can't use `odgi_ffi` and `import odgi` at the same time
+from odgi_dataset import OdgiInterface
+from odgi_ffi import *
 
 def draw(pos_changes, output_dir, DRAW_INTERVAL):
     # remove all the .png file in output_dir
@@ -78,9 +81,11 @@ class PlaceEngine(nn.Module):
 
         return stress
 
-    def stress_fn(self, dist):
+    def stress_fn(self, Dist_paths):
         '''
         @brief Compute the stress function
+        @param Dist_paths: [num_paths, num_nodes, num_nodes]
+        @return: the stress function (here is the sum of all the stress on all the paths - pangenomic specific)
         '''
         
         copy1 = torch.reshape(self.pos, (1, self.num_nodes, 2))
@@ -89,10 +94,15 @@ class PlaceEngine(nn.Module):
         broadcasted2 = torch.broadcast_to(copy2, (self.num_nodes, self.num_nodes, 2))
         diff = broadcasted1 - broadcasted2
         pred_dist = torch.norm(diff, dim=2).reshape((self.num_nodes, self.num_nodes))
-        mask = dist.ne(0)
-        pred_dist = torch.where(mask, pred_dist, dist)
-        stress_matrix = torch.where(mask, torch.square((pred_dist - dist) / dist), dist) # [num_nodes, num_nodes]. Actually, this involves with redundant computation. (The matrix is symmetric)
-        stress = torch.sum(stress_matrix)
+
+        stress = 0
+        num_paths = Dist_paths.shape[0]
+        for i in range(num_paths):
+            dist = Dist_paths[i, :, :]
+            mask = dist.ne(0)
+            pred_dist = torch.where(mask, pred_dist, dist)
+            stress_matrix = torch.where(mask, torch.square((pred_dist - dist) / dist), dist) # [num_nodes, num_nodes]. Actually, this involves with redundant computation. (The matrix is symmetric)
+            stress += torch.sum(stress_matrix)
         
         return stress
 
@@ -104,17 +114,15 @@ def main(args):
     DRAW_INTERVAL = args.draw_interval
     LOG_INTERVAL = args.log_interval
 
-    g = odgi.graph()
-    g.load(args.input_file)
+    g = odgi_load_graph(args.input_file)
 
-    num_nodes = g.get_node_count() * 2 # number of visualization points: 2 * graph nodes. One node has 2 ends. 
-    num_paths = g.get_path_count()
+    num_nodes = odgi_get_node_count(g) * 2 # number of visualization points: 2 * graph nodes. One node has 2 ends. 
+    num_paths = odgi_get_path_count(g)
 
     use_cuda = args.cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
     print(f"==== input_file: {args.input_file}; num_nodes: {num_nodes}; num_paths: {num_paths}; Device: {device} ====")
-
 
 
     Dist_paths = list() # Distance matrix for different paths
@@ -129,7 +137,8 @@ def main(args):
         '''
         
         step_handles = []
-        g.for_each_step_in_path(path_handle, lambda s: step_handles.append(g.get_handle_of_step(s)))
+        # g.for_each_step_in_path(path_handle, lambda s: step_handles.append(g.get_handle_of_step(s)))
+        odgi_for_each_step_in_path(g, path_handle, lambda s: step_handles.append(odgi_get_handle_of_step(g, s))) # Didn't have this correct function! The last argument is not set as a lambda function.  
         
         step_length = np.zeros(len(step_handles), dtype=int)
         step_id = np.zeros(len(step_handles), dtype=int)
@@ -165,7 +174,8 @@ def main(args):
     if args.save:
         Dist_paths_arr = np.load(os.path.dirname(args.input_file) + '/Dist_paths.npy')
     else:
-        g.for_each_path_handle(lambda p: Dist_paths.append(get_dist(p)))
+        # g.for_each_path_handle(lambda p: Dist_paths.append(get_dist(p)))
+        odgi_for_each_path_handle(g, lambda p: Dist_paths.append(get_dist(p)))
         Dist_paths_arr = np.array(Dist_paths)
         # np.save(os.path.dirname(args.input_file) + '/Dist_paths.npy', Dist_paths_arr)
 
@@ -188,7 +198,7 @@ def main(args):
     start = datetime.datetime.now()
     for i in range(STEPS):
         # switch distance matrix between paths different paths in each step ----> can't converge......
-        stress = mod.gradient_step(dist_paths[i % num_paths])
+        stress = mod.gradient_step(dist_paths)
         # stress = mod.gradient_step(dist_paths[0]) # don't switch
         mod.scheduler.step() # learning rate scheduler
 
@@ -203,6 +213,10 @@ def main(args):
     end = datetime.datetime.now()
 
     print(f"==== Training time: {end - start}; Step: {STEPS}; Device: {device} ====")
+    pos_np = mod.pos.cpu().detach().numpy()
+    pos_np = pos_np.reshape(pos_np.shape[0]//2, 2, 2)
+    OdgiInterface.generate_layout_file(g, pos_np, os.path.dirname(args.input_file)+'/layout.lay')
+
 
     # === draw learning curve ===
     # fig, ax = plt.subplots()
@@ -213,7 +227,7 @@ def main(args):
     if args.draw:
         draw(pos_changes, os.path.dirname(args.input_file), DRAW_INTERVAL)
 
-    
+
 
 # [Problem] connected code length is zero, it doesn't take into consideration when training! e.g. Node1 and Node2 are connected. 
 # [Solution] set ZERO_VALUE = 1e-9 (same as ODGI) for two connected viz points. But this will also lead to convergence problem. 
