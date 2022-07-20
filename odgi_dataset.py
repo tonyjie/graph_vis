@@ -1,5 +1,5 @@
 # Use with odgi branch zhang_research_extended https://github.com/nsmlzl/odgi/tree/zhang_research_extended
-# ODGI Dataset and Interface
+# Run with command 'env LD_PRELOAD=libjemalloc.so.2 PYTHONPATH=<lib dir of odgi-build> python3 batch_sgd.py --batch_size 1 --num_iter 15'
 
 import torch
 import numpy as np
@@ -29,12 +29,15 @@ class OdgiDataloader:
     def __init__(self, file_name):
         self.batch_size = 1
         self.batch_counter = 0
+        self.iteration = 0
+        self.first_cooling_iter = 15
 
         self.g = odgi_load_graph(file_name)
 
         assert odgi_min_node_id(self.g) == 1
         assert odgi_max_node_id(self.g) == self.get_node_count()
 
+        self.zipf_theta = 0.99
         self.rnd_node_gen = odgi_create_rnd_node_generator(self.g)
 
         self.path_names = []
@@ -59,7 +62,10 @@ class OdgiDataloader:
         return id_node_a, id_node_b, vis_p_a, vis_p_b, w, d
 
     def get_random_node_numpy_batch(self) :
-        (i_np, j_np, vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size)
+        cooling = False
+        if self.iteration > self.first_cooling_iter :
+            cooling = True
+        (i_np, j_np, vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling)
         w_np = np.empty(self.batch_size, dtype=np.float)
         w_np = 1.0 / (d_np**2)
         return i_np, j_np, vis_i_np, vis_j_np, w_np, d_np
@@ -82,6 +88,7 @@ class OdgiDataloader:
 
     def __next__(self):
         if (self.batch_counter * self.batch_size) >= self.steps_in_iteration() :
+            self.iteration = self.iteration + 1
             raise StopIteration
         else :
             self.batch_counter = self.batch_counter + 1
