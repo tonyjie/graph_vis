@@ -34,6 +34,10 @@ def draw_svg(x, gdata, output_name):
 
 
 def main(args):
+    use_cuda = args.cuda and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    print(f"==== Device: {device}; Dataset: {args.file} ====")
+
     data = OdgiDataloader(args.file)
     data.set_batch_size(args.batch_size)
 
@@ -121,9 +125,16 @@ def main(args):
         sys.exit("ERROR: Hardcoded schedule only available for {} iterations".format(len(schedule)))
 
 
-    x = torch.rand([n,2,2], dtype=torch.float64)
+    print(f"len(data): {data.steps_in_iteration()}") # 350590
+    # torch.set_num_interop_threads(1)
+    # print(f"==== Config: num_threads: {torch.get_num_threads()}; num_interop_threads: {torch.get_num_interop_threads()} ====")
+
+    x = torch.rand([n,2,2], dtype=torch.float64, device=device)
 
     start = datetime.now()
+    
+    compute_time = 0
+
     # ***** Interesting NOTE: I think odgi runs one iteration more than selected with argument
     for iteration, eta in enumerate(schedule[:num_iter]):
         print("Computing iteration", iteration + 1, "of", num_iter, eta)
@@ -136,6 +147,12 @@ def main(args):
             # compute weight w in PyTorch model (here); don't use computed weight of dataloader
             # dataloader computes it as w = 1 / dis^2
             # ***** Interesting NOTE (found by Jiajie): ODGI uses as weight 1/dis; while original graph drawing paper uses 1/dis^2
+            
+            compute_start = datetime.now()
+
+            # to cuda
+            dis = dis.to(device)
+
             w = 1 / dis
 
             mu = eta * w
@@ -162,14 +179,20 @@ def main(args):
             x[i-1, vis_p_i, 1] = x[i-1, vis_p_i, 1] - r_y
             x[j-1, vis_p_j, 1] = x[j-1, vis_p_j, 1] + r_y
 
+            compute_end = datetime.now()
+            compute_time += (compute_end - compute_start).total_seconds()
+
+
         if ((iteration+1) % 5) == 0 and args.create_iteration_figs == True:
-            x_np = x.clone().detach().numpy()
+            x_np = x.cpu().clone().detach().numpy()
             draw_svg(x_np, data, "output/out_iter{}".format(iteration+1))
 
     end = datetime.now()
-    print("Computation took", end-start)
+    overall_time = (end-start).total_seconds()
+    dataload_time = overall_time - compute_time
+    print(f"Overall time {overall_time} sec; Dataloading time: {dataload_time} sec; Computation took {compute_time} sec")
 
-    x_np = x.detach().numpy()
+    x_np = x.cpu().detach().numpy()
     OdgiInterface.generate_layout_file(data.get_graph(), x_np, "output/" + args.file + ".lay")
     draw_svg(x_np, data, "output/out_final")
 
@@ -180,6 +203,7 @@ if __name__ == "__main__":
     parser.add_argument('--num_iter', type=int, default=15, help='number of iterations')
     parser.add_argument('--file', type=str, default='tiny_pangenome.og', help='odgi variation graph')
     parser.add_argument('--create_iteration_figs', action='store_true', help='create at each 5 iteration a figure of the current state')
+    parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
     args = parser.parse_args()
     print(args)
     main(args)
