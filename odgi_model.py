@@ -81,7 +81,7 @@ def main(args):
     elif args.file == "DRB1-3123.og":
         print("Using hardcoded schedule of DRB1-3123.og")
         # for DRB1-3123
-        schedule.append(.61e+06)
+        schedule.append(9.61e+06)
         schedule.append(4.70949e+06)
         schedule.append(2.30794e+06)
         schedule.append(1.13104e+06)
