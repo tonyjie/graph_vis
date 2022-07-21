@@ -26,19 +26,22 @@ class OdgiTorchDataset(torch.utils.data.Dataset):
 
 
 class OdgiDataloader:
-    def __init__(self, file_name):
-        self.batch_size = 1
+    def __init__(self, file_name, batch_size=1, zipf_theta=0.99, space_max=1000, space_quantization_step=100, first_cooling_iteration=15):
+        self.batch_size = batch_size
+        self.zipf_theta = zipf_theta
+        self.space_max = space_max
+        self.space_quantization_step = space_quantization_step
+        self.first_cooling_iter = first_cooling_iteration
+
         self.batch_counter = 0
-        self.iteration = 0
-        self.first_cooling_iter = 15
+        self.iteration = 1
 
         self.g = odgi_load_graph(file_name)
 
         assert odgi_min_node_id(self.g) == 1
         assert odgi_max_node_id(self.g) == self.get_node_count()
 
-        self.zipf_theta = 0.99
-        self.rnd_node_gen = odgi_create_rnd_node_generator(self.g)
+        self.rnd_node_gen = odgi_create_rnd_node_generator(self.g, self.zipf_theta, self.space_max, self.space_quantization_step)
 
         self.path_names = []
         odgi_for_each_path_handle(self.g, lambda p: self.path_names.append(odgi_get_path_name(self.g, p)))
@@ -47,8 +50,11 @@ class OdgiDataloader:
         odgi_for_each_path_handle(self.g, lambda p: sizes.append(odgi_get_step_in_path_count(self.g, p)))
         self.global_length = sum(sizes)
 
-        self.w_max = 1                                  # w_max when nodes next to each other
-        self.w_min = 1 / ((max(sizes)-1)**2)       # w_min when nodes on ends of longest path
+        # computed as in odgi
+        max_path_length = odgi_RNG_get_max_path_length(self.rnd_node_gen)
+        max_learning_rate = max_path_length**2
+        self.w_max = 1.0
+        self.w_min = 1 / max_learning_rate
         return
 
     def get_random_pair(self):
@@ -63,7 +69,7 @@ class OdgiDataloader:
 
     def get_random_node_numpy_batch(self) :
         cooling = False
-        if self.iteration > self.first_cooling_iter :
+        if self.iteration >= self.first_cooling_iter :
             cooling = True
         (i_np, j_np, vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling)
         w_np = np.empty(self.batch_size, dtype=np.float)

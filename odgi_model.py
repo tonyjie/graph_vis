@@ -3,6 +3,7 @@
 # env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_model.py --file DRB1-3123.og --batch_size=100 --num_iter=31 --create_iteration_figs
 import argparse
 import sys
+import math
 from datetime import datetime
 
 import torch
@@ -43,6 +44,19 @@ def main(args):
 
     n = data.get_node_count()
     num_iter = args.num_iter
+
+    w_min = data.w_min
+    w_max = data.w_max
+    epsilon = 0.01              # default value of odgi
+
+    eta_max = 1/w_min
+    eta_min = epsilon/w_max
+    lambd = math.log(eta_min / eta_max) / (num_iter - 1)
+    schedule_c = []
+    for t in range(num_iter):
+        eta = eta_max * math.exp(lambd * t)
+        schedule_c.append(eta)
+
 
 
     # TODO implement schedule generation
@@ -123,6 +137,11 @@ def main(args):
 
     if args.num_iter > len(schedule):
         sys.exit("ERROR: Hardcoded schedule only available for {} iterations".format(len(schedule)))
+
+    print(f"Compare schedule: {schedule==schedule_c}")
+    print(f"Schedule: {schedule}")
+    print(f"Schedule_c: {schedule_c}")
+    sys.exit()
 
 
     print(f"len(data): {data.steps_in_iteration()}") # 350590
