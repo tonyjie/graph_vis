@@ -3,6 +3,7 @@
 
 import argparse
 import sys
+import math
 from datetime import datetime
 
 import torch
@@ -41,80 +42,110 @@ def main(args):
     num_iter = args.num_iter
 
 
-    # TODO implement schedule generation
+    # TODO compute w_min & w_max
+    # tiny_pangenome
+    # w_min = 0.01
+    # w_max = 1
+    # DRB1-3123
+    w_min = 1.04058e-7
+    w_max = 1
+
+    epsilon = 0.01      # default value of odgi
+
+    eta_max = 1/w_min
+    eta_min = epsilon/w_max
+    lambd = math.log(eta_min / eta_max) / (num_iter - 1)
     schedule = []
+    for t in range(num_iter):
+        eta = eta_max * math.exp(lambd * t)
+        schedule.append(eta)
+
+    print("eta_max: {}".format(eta_max))
+    print("eta_min: {}".format(eta_min))
+    print("lambd: {}".format(lambd))
+    print("schedule: {}".format(schedule))
+
+
+    schedule_hc = []
+    # TODO implement schedule generation
     if args.file == "tiny_pangenome.og":
         print("Using hardcoded schedule of tiny_pangenome.og")
         # for tiny_pangenome
-        schedule.append(100)
-        schedule.append(72.7895)
-        schedule.append(52.9832)
-        schedule.append(38.5662)
-        schedule.append(28.0722)
-        schedule.append(20.4336)
-        schedule.append(14.8735)
-        schedule.append(10.8264)
-        schedule.append(7.88046)
-        schedule.append(5.73615)
-        schedule.append(4.17532)
-        schedule.append(3.0392)
-        schedule.append(2.21222)
-        schedule.append(1.61026)
-        schedule.append(1.1721)
-        schedule.append(0.853168)
-        schedule.append(0.621017)
-        schedule.append(0.452035)
-        schedule.append(0.329034)
-        schedule.append(0.239503)
-        schedule.append(0.174333)
-        schedule.append(0.126896)
-        schedule.append(0.0923671)
-        schedule.append(0.0672336)
-        schedule.append(0.048939)
-        schedule.append(0.0356225)
-        schedule.append(0.0259294)
-        schedule.append(0.0188739)
-        schedule.append(0.0137382)
-        schedule.append(0.01)
-        schedule.append(0.00727895)
+        schedule_hc.append(100)
+        schedule_hc.append(72.7895)
+        schedule_hc.append(52.9832)
+        schedule_hc.append(38.5662)
+        schedule_hc.append(28.0722)
+        schedule_hc.append(20.4336)
+        schedule_hc.append(14.8735)
+        schedule_hc.append(10.8264)
+        schedule_hc.append(7.88046)
+        schedule_hc.append(5.73615)
+        schedule_hc.append(4.17532)
+        schedule_hc.append(3.0392)
+        schedule_hc.append(2.21222)
+        schedule_hc.append(1.61026)
+        schedule_hc.append(1.1721)
+        schedule_hc.append(0.853168)
+        schedule_hc.append(0.621017)
+        schedule_hc.append(0.452035)
+        schedule_hc.append(0.329034)
+        schedule_hc.append(0.239503)
+        schedule_hc.append(0.174333)
+        schedule_hc.append(0.126896)
+        schedule_hc.append(0.0923671)
+        schedule_hc.append(0.0672336)
+        schedule_hc.append(0.048939)
+        schedule_hc.append(0.0356225)
+        schedule_hc.append(0.0259294)
+        schedule_hc.append(0.0188739)
+        schedule_hc.append(0.0137382)
+        schedule_hc.append(0.01)
+        schedule_hc.append(0.00727895)
 
     elif args.file == "DRB1-3123.og":
         print("Using hardcoded schedule of DRB1-3123.og")
         # for DRB1-3123
-        schedule.append(9.61e+06)
-        schedule.append(4.70949e+06)
-        schedule.append(2.30794e+06)
-        schedule.append(1.13104e+06)
-        schedule.append(554277)
-        schedule.append(271630)
-        schedule.append(133116)
-        schedule.append(65234.9)
-        schedule.append(31969.1)
-        schedule.append(15666.8)
-        schedule.append(7677.73)
-        schedule.append(3762.56)
-        schedule.append(1843.89)
-        schedule.append(903.619)
-        schedule.append(442.829)
-        schedule.append(217.014)
-        schedule.append(106.35)
-        schedule.append(52.1181)
-        schedule.append(25.5411)
-        schedule.append(12.5167)
-        schedule.append(6.13397)
-        schedule.append(3.00603)
-        schedule.append(1.47314)
-        schedule.append(0.721929)
-        schedule.append(0.35379)
-        schedule.append(0.173379)
-        schedule.append(0.0849664)
-        schedule.append(0.0416388)
-        schedule.append(0.0204056)
-        schedule.append(0.01)
-        schedule.append(0.00490062)
+        schedule_hc.append(9.61e+06)
+        schedule_hc.append(4.70949e+06)
+        schedule_hc.append(2.30794e+06)
+        schedule_hc.append(1.13104e+06)
+        schedule_hc.append(554277)
+        schedule_hc.append(271630)
+        schedule_hc.append(133116)
+        schedule_hc.append(65234.9)
+        schedule_hc.append(31969.1)
+        schedule_hc.append(15666.8)
+        schedule_hc.append(7677.73)
+        schedule_hc.append(3762.56)
+        schedule_hc.append(1843.89)
+        schedule_hc.append(903.619)
+        schedule_hc.append(442.829)
+        schedule_hc.append(217.014)
+        schedule_hc.append(106.35)
+        schedule_hc.append(52.1181)
+        schedule_hc.append(25.5411)
+        schedule_hc.append(12.5167)
+        schedule_hc.append(6.13397)
+        schedule_hc.append(3.00603)
+        schedule_hc.append(1.47314)
+        schedule_hc.append(0.721929)
+        schedule_hc.append(0.35379)
+        schedule_hc.append(0.173379)
+        schedule_hc.append(0.0849664)
+        schedule_hc.append(0.0416388)
+        schedule_hc.append(0.0204056)
+        schedule_hc.append(0.01)
+        schedule_hc.append(0.00490062)
 
     else:
         sys.exit("ERROR: Unable to find hardcoded schedule for file name")
+
+
+    for idx, eta in enumerate(schedule):
+        diff = abs(eta - schedule_hc[idx]) / eta
+        print(diff)
+        assert diff < 0.01
 
 
     if args.num_iter > len(schedule):
