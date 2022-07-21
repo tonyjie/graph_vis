@@ -50,8 +50,11 @@ class OdgiDataloader:
         odgi_for_each_path_handle(self.g, lambda p: sizes.append(odgi_get_step_in_path_count(self.g, p)))
         self.global_length = sum(sizes)
 
-        self.w_max = 1                                  # w_max when nodes next to each other
-        self.w_min = 1 / ((max(sizes)-1)**2)       # w_min when nodes on ends of longest path
+        # computed as in odgi
+        max_path_length = odgi_RNG_get_max_path_length(self.rnd_node_gen)
+        max_learning_rate = max_path_length**2
+        self.w_max = 1.0
+        self.w_min = 1 / max_learning_rate
         return
 
     def get_random_pair(self):

@@ -3,6 +3,7 @@
 
 import argparse
 import sys
+import math
 from datetime import datetime
 
 import torch
@@ -34,95 +35,28 @@ def draw_svg(x, gdata, output_name):
 
 
 def main(args):
+    start = datetime.now()
     data = OdgiDataloader(args.file, batch_size=args.batch_size)
 
     n = data.get_node_count()
     num_iter = args.num_iter
 
 
-    # TODO implement schedule generation
+    w_min = data.w_min
+    w_max = data.w_max
+    epsilon = 0.01              # default value of odgi
+
+    eta_max = 1/w_min
+    eta_min = epsilon/w_max
+    lambd = math.log(eta_min / eta_max) / (num_iter - 1)
     schedule = []
-    if args.file == "tiny_pangenome.og":
-        print("Using hardcoded schedule of tiny_pangenome.og")
-        # for tiny_pangenome
-        schedule.append(100)
-        schedule.append(72.7895)
-        schedule.append(52.9832)
-        schedule.append(38.5662)
-        schedule.append(28.0722)
-        schedule.append(20.4336)
-        schedule.append(14.8735)
-        schedule.append(10.8264)
-        schedule.append(7.88046)
-        schedule.append(5.73615)
-        schedule.append(4.17532)
-        schedule.append(3.0392)
-        schedule.append(2.21222)
-        schedule.append(1.61026)
-        schedule.append(1.1721)
-        schedule.append(0.853168)
-        schedule.append(0.621017)
-        schedule.append(0.452035)
-        schedule.append(0.329034)
-        schedule.append(0.239503)
-        schedule.append(0.174333)
-        schedule.append(0.126896)
-        schedule.append(0.0923671)
-        schedule.append(0.0672336)
-        schedule.append(0.048939)
-        schedule.append(0.0356225)
-        schedule.append(0.0259294)
-        schedule.append(0.0188739)
-        schedule.append(0.0137382)
-        schedule.append(0.01)
-        schedule.append(0.00727895)
-
-    elif args.file == "DRB1-3123.og":
-        print("Using hardcoded schedule of DRB1-3123.og")
-        # for DRB1-3123
-        schedule.append(.61e+06)
-        schedule.append(4.70949e+06)
-        schedule.append(2.30794e+06)
-        schedule.append(1.13104e+06)
-        schedule.append(554277)
-        schedule.append(271630)
-        schedule.append(133116)
-        schedule.append(65234.9)
-        schedule.append(31969.1)
-        schedule.append(15666.8)
-        schedule.append(7677.73)
-        schedule.append(3762.56)
-        schedule.append(1843.89)
-        schedule.append(903.619)
-        schedule.append(442.829)
-        schedule.append(217.014)
-        schedule.append(106.35)
-        schedule.append(52.1181)
-        schedule.append(25.5411)
-        schedule.append(12.5167)
-        schedule.append(6.13397)
-        schedule.append(3.00603)
-        schedule.append(1.47314)
-        schedule.append(0.721929)
-        schedule.append(0.35379)
-        schedule.append(0.173379)
-        schedule.append(0.0849664)
-        schedule.append(0.0416388)
-        schedule.append(0.0204056)
-        schedule.append(0.01)
-        schedule.append(0.00490062)
-
-    else:
-        sys.exit("ERROR: Unable to find hardcoded schedule for file name")
-
-
-    if args.num_iter > len(schedule):
-        sys.exit("ERROR: Hardcoded schedule only available for {} iterations".format(len(schedule)))
+    for t in range(num_iter):
+        eta = eta_max * math.exp(lambd * t)
+        schedule.append(eta)
 
 
     x = torch.rand([n,2,2], dtype=torch.float64)
 
-    start = datetime.now()
     # ***** Interesting NOTE: I think odgi runs one iteration more than selected with argument
     for iteration, eta in enumerate(schedule[:num_iter]):
         print("Computing iteration", iteration + 1, "of", num_iter, eta)
