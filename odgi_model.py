@@ -34,6 +34,7 @@ def draw_svg(x, gdata, output_name):
 
 
 def main(args):
+    start = datetime.now()
     data = OdgiDataloader(args.file, batch_size=args.batch_size)
 
     n = data.get_node_count()
@@ -80,7 +81,7 @@ def main(args):
     elif args.file == "DRB1-3123.og":
         print("Using hardcoded schedule of DRB1-3123.og")
         # for DRB1-3123
-        schedule.append(.61e+06)
+        schedule.append(9.61e+06)
         schedule.append(4.70949e+06)
         schedule.append(2.30794e+06)
         schedule.append(1.13104e+06)
@@ -122,7 +123,6 @@ def main(args):
 
     x = torch.rand([n,2,2], dtype=torch.float64)
 
-    start = datetime.now()
     # ***** Interesting NOTE: I think odgi runs one iteration more than selected with argument
     for iteration, eta in enumerate(schedule[:num_iter]):
         print("Computing iteration", iteration + 1, "of", num_iter, eta)
