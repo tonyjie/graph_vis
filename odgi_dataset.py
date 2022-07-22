@@ -76,6 +76,10 @@ class OdgiDataloader:
         w_np = 1.0 / (d_np**2)
         return i_np, j_np, vis_i_np, vis_j_np, w_np, d_np
 
+    def get_random_node_torch_batch(self) :
+        (i_np, j_np, vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
+        return torch.from_numpy(i_np), torch.from_numpy(j_np), torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
+
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
 
@@ -98,8 +102,7 @@ class OdgiDataloader:
             raise StopIteration
         else :
             self.batch_counter = self.batch_counter + 1
-            (i_np, j_np, vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
-            return torch.from_numpy(i_np), torch.from_numpy(j_np), torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
+            return self.get_random_node_torch_batch()
 
 
 class OdgiInterface:
