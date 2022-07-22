@@ -1,6 +1,6 @@
 # Use with odgi branch zhang_research_extended https://github.com/nsmlzl/odgi/tree/zhang_research_extended
 # Run with command 'env LD_PRELOAD=libjemalloc.so.2 PYTHONPATH=<lib dir of odgi-build> python3 batch_sgd.py --batch_size 1 --num_iter 15'
-# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_model.py --file DRB1-3123.og --batch_size=100 --num_iter=31 --create_iteration_figs
+# env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_model.py --file DRB1-3123.og --batch_size=100 --num_iter=30 --create_iteration_figs
 import argparse
 import sys
 import math
@@ -39,8 +39,8 @@ def main(args):
     device = torch.device("cuda" if use_cuda else "cpu")
     print(f"==== Device: {device}; Dataset: {args.file} ====")
 
-    data = OdgiDataloader(args.file)
-    data.set_batch_size(args.batch_size)
+    data = OdgiDataloader(args.file, batch_size=args.batch_size)
+    # data.set_batch_size(args.batch_size)
 
     n = data.get_node_count()
     num_iter = args.num_iter
@@ -52,99 +52,15 @@ def main(args):
     eta_max = 1/w_min
     eta_min = epsilon/w_max
     lambd = math.log(eta_min / eta_max) / (num_iter - 1)
-    schedule_c = []
-    for t in range(num_iter):
-        eta = eta_max * math.exp(lambd * t)
-        schedule_c.append(eta)
-
-
-
-    # TODO implement schedule generation
     schedule = []
-    if args.file == "tiny_pangenome.og":
-        print("Using hardcoded schedule of tiny_pangenome.og")
-        # for tiny_pangenome
-        schedule.append(100)
-        schedule.append(72.7895)
-        schedule.append(52.9832)
-        schedule.append(38.5662)
-        schedule.append(28.0722)
-        schedule.append(20.4336)
-        schedule.append(14.8735)
-        schedule.append(10.8264)
-        schedule.append(7.88046)
-        schedule.append(5.73615)
-        schedule.append(4.17532)
-        schedule.append(3.0392)
-        schedule.append(2.21222)
-        schedule.append(1.61026)
-        schedule.append(1.1721)
-        schedule.append(0.853168)
-        schedule.append(0.621017)
-        schedule.append(0.452035)
-        schedule.append(0.329034)
-        schedule.append(0.239503)
-        schedule.append(0.174333)
-        schedule.append(0.126896)
-        schedule.append(0.0923671)
-        schedule.append(0.0672336)
-        schedule.append(0.048939)
-        schedule.append(0.0356225)
-        schedule.append(0.0259294)
-        schedule.append(0.0188739)
-        schedule.append(0.0137382)
-        schedule.append(0.01)
-        schedule.append(0.00727895)
-
-    elif args.file == "DRB1-3123.og":
-        print("Using hardcoded schedule of DRB1-3123.og")
-        # for DRB1-3123
-        schedule.append(9.61e+06)
-        schedule.append(4.70949e+06)
-        schedule.append(2.30794e+06)
-        schedule.append(1.13104e+06)
-        schedule.append(554277)
-        schedule.append(271630)
-        schedule.append(133116)
-        schedule.append(65234.9)
-        schedule.append(31969.1)
-        schedule.append(15666.8)
-        schedule.append(7677.73)
-        schedule.append(3762.56)
-        schedule.append(1843.89)
-        schedule.append(903.619)
-        schedule.append(442.829)
-        schedule.append(217.014)
-        schedule.append(106.35)
-        schedule.append(52.1181)
-        schedule.append(25.5411)
-        schedule.append(12.5167)
-        schedule.append(6.13397)
-        schedule.append(3.00603)
-        schedule.append(1.47314)
-        schedule.append(0.721929)
-        schedule.append(0.35379)
-        schedule.append(0.173379)
-        schedule.append(0.0849664)
-        schedule.append(0.0416388)
-        schedule.append(0.0204056)
-        schedule.append(0.01)
-        schedule.append(0.00490062)
-
-    else:
-        sys.exit("ERROR: Unable to find hardcoded schedule for file name")
+    for t in range(num_iter+1):
+        eta = eta_max * math.exp(lambd * t)
+        schedule.append(eta)
 
 
-    if args.num_iter > len(schedule):
-        sys.exit("ERROR: Hardcoded schedule only available for {} iterations".format(len(schedule)))
-
-    print(f"Compare schedule: {schedule==schedule_c}")
-    print(f"Schedule: {schedule}")
-    print(f"Schedule_c: {schedule_c}")
-    sys.exit()
 
 
-    print(f"len(data): {data.steps_in_iteration()}") # 350590
+    print(f"len(data): {data.steps_in_iteration()}") # 350590 for DRB1-3123.og
     # torch.set_num_interop_threads(1)
     # print(f"==== Config: num_threads: {torch.get_num_threads()}; num_interop_threads: {torch.get_num_interop_threads()} ====")
 
@@ -155,8 +71,8 @@ def main(args):
     compute_time = 0
 
     # ***** Interesting NOTE: I think odgi runs one iteration more than selected with argument
-    for iteration, eta in enumerate(schedule[:num_iter]):
-        print("Computing iteration", iteration + 1, "of", num_iter, eta)
+    for iteration, eta in enumerate(schedule):
+        print("Computing iteration", iteration + 1, "of", num_iter + 1, eta)
         
         for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data):
             # breakpoint()
