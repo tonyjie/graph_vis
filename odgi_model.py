@@ -3,6 +3,7 @@
 # env LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=~/odgi_niklas/lib python odgi_model.py --file DRB1-3123.og --batch_size=100 --num_iter=30 --create_iteration_figs
 import argparse
 import sys
+import os
 import math
 from datetime import datetime
 
@@ -101,7 +102,13 @@ def main(args):
             dx = x_i - x_j
             dy = y_i - y_j
 
+            not_zero = torch.ones_like(dx) * 1e-9
+            dx = torch.max(dx, not_zero)
+
             mag = torch.pow(torch.pow(dx,2) + torch.pow(dy,2), 0.5)
+
+            # not_zero = torch.ones_like(mag) * 1e-9
+            # mag_not_zero = torch.max(mag, not_zero)
 
             delta = mu_m * (mag - dis) / 2.0
 
@@ -114,22 +121,26 @@ def main(args):
             x[i-1, vis_p_i, 1] = x[i-1, vis_p_i, 1] - r_y
             x[j-1, vis_p_j, 1] = x[j-1, vis_p_j, 1] + r_y
 
+            # if (torch.isnan(x).any()):
+            #     # breakpoint()
+            #     raise ValueError(f"Iter[{iteration}] Step[{batch_idx}]. x: {x} is NaN. mag: {mag}")
+
             compute_end = datetime.now()
             compute_time += (compute_end - compute_start).total_seconds()
 
 
         if ((iteration+1) % 5) == 0 and args.create_iteration_figs == True:
             x_np = x.cpu().clone().detach().numpy()
-            draw_svg(x_np, data, "output/out_iter{}".format(iteration+1))
+            draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_iter{iteration+1}")
 
     end = datetime.now()
     overall_time = (end-start).total_seconds()
     dataload_time = overall_time - compute_time
-    print(f"Overall time {overall_time} sec; Dataloading time: {dataload_time} sec; Computation took {compute_time} sec")
+    print(f"Overall time {overall_time:.2f} sec; Dataloading time: {dataload_time:.2f} sec; Computation took {compute_time:.2f} sec")
 
     x_np = x.cpu().detach().numpy()
-    OdgiInterface.generate_layout_file(data.get_graph(), x_np, "output/" + args.file + ".lay")
-    draw_svg(x_np, data, "output/out_final")
+    OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
+    draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_final")
 
 
 if __name__ == "__main__":
