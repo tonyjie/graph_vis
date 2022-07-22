@@ -62,7 +62,7 @@ def main(args):
         print("Computing iteration", iteration + 1, "of", num_iter, eta)
         
         for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data):
-            # print("batch", batch_idx, "of", (float(data.steps_in_iteration()) / float(data.batch_size)))
+            # print("batch", batch_idx, "of", math.floor(float(data.steps_in_iteration()) / float(data.batch_size)))
             # pytorch model as close as possible to odgi implementation
 
             # compute weight w in PyTorch model (here); don't use computed weight of dataloader
@@ -82,10 +82,12 @@ def main(args):
             dy = y_i - y_j
 
             mag = torch.pow(torch.pow(dx,2) + torch.pow(dy,2), 0.5)
+            not_zero = torch.ones_like(mag) * 1e-9
+            mag_not_zero = torch.max(mag, not_zero)
 
             delta = mu_m * (mag - dis) / 2.0
 
-            r = delta / mag
+            r = delta / mag_not_zero
             r_x = r * dx
             r_y = r * dy
 
