@@ -70,13 +70,14 @@ def main(args):
     start = datetime.now()
     
     compute_time = 0
+    transfer_time = 0
 
     # ***** Interesting NOTE: I think odgi runs one iteration more than selected with argument
     for iteration, eta in enumerate(schedule):
         print("Computing iteration", iteration + 1, "of", num_iter + 1, eta)
         
         for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data):
-            # breakpoint()
+            
 
             # pytorch model as close as possible to odgi implementation
 
@@ -84,11 +85,13 @@ def main(args):
             # dataloader computes it as w = 1 / dis^2
             # ***** Interesting NOTE (found by Jiajie): ODGI uses as weight 1/dis; while original graph drawing paper uses 1/dis^2
             
-            compute_start = datetime.now()
-
+            
+            transfer_start = datetime.now()
             # to cuda
             dis = dis.to(device)
+            transfer_end = datetime.now()
 
+            compute_start = datetime.now()
             w = 1 / dis
 
             mu = eta * w
@@ -102,17 +105,18 @@ def main(args):
             dx = x_i - x_j
             dy = y_i - y_j
 
-            not_zero = torch.ones_like(dx) * 1e-9
-            dx = torch.max(dx, not_zero)
+            # The following two lines will cause LPA & MHC to have different results with ODGI. However, the following lines follows the OGDI's strategies on avoiding NaN. 
+            # not_zero = torch.ones_like(dx) * 1e-9
+            # dx = torch.max(dx, not_zero)
 
             mag = torch.pow(torch.pow(dx,2) + torch.pow(dy,2), 0.5)
 
-            # not_zero = torch.ones_like(mag) * 1e-9
-            # mag_not_zero = torch.max(mag, not_zero)
+            not_zero = torch.ones_like(mag) * 1e-9
+            mag_not_zero = torch.max(mag, not_zero)
 
             delta = mu_m * (mag - dis) / 2.0
 
-            r = delta / mag
+            r = delta / mag_not_zero
             r_x = r * dx
             r_y = r * dy
 
@@ -126,6 +130,8 @@ def main(args):
             #     raise ValueError(f"Iter[{iteration}] Step[{batch_idx}]. x: {x} is NaN. mag: {mag}")
 
             compute_end = datetime.now()
+
+            transfer_time += (transfer_end - transfer_start).total_seconds()
             compute_time += (compute_end - compute_start).total_seconds()
 
 
@@ -135,8 +141,8 @@ def main(args):
 
     end = datetime.now()
     overall_time = (end-start).total_seconds()
-    dataload_time = overall_time - compute_time
-    print(f"Overall time {overall_time:.2f} sec; Dataloading time: {dataload_time:.2f} sec; Computation took {compute_time:.2f} sec")
+    dataload_time = overall_time - compute_time - transfer_time
+    print(f"Overall time {overall_time:.2f} sec; Dataloading time: {dataload_time:.2f} sec; Computation time: {compute_time:.2f} sec; Data Transfer time: {transfer_time:.2f} sec")
 
     x_np = x.cpu().detach().numpy()
     OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
