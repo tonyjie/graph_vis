@@ -13,6 +13,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 from odgi_dataset import OdgiDataloader, OdgiInterface
 
+def compute_stress(pos, Dist_paths):
+    '''
+    @brief: compute the overall stress given the positions and Distance Matrix. 
+    @param: positions. [num_nodes, 2]
+    @param: Dist_paths: [num_paths, num_nodes, num_nodes]. Only nonzero element matters (are connected). 
+    @return: stress. We compare the viz_dis with real_dis on All paths.
+    '''
+    num_nodes = pos.shape[0]
+    copy1 = np.reshape(pos, (1, num_nodes, 2))
+    copy2 = np.reshape(pos, (num_nodes, 1, 2))
+    broadcasted1 = np.broadcast_to(copy1, (num_nodes, num_nodes, 2))
+    broadcasted2 = np.broadcast_to(copy2, (num_nodes, num_nodes, 2))
+    diff = broadcasted1 - broadcasted2
+    pred_dist = np.linalg.norm(diff, axis=2).reshape((num_nodes, num_nodes))
+
+    stress = 0
+    num_paths = Dist_paths.shape[0]
+    for i in range(num_paths):
+        Dist = Dist_paths[i, :, :]
+        mask = np.not_equal(Dist, 0)
+        pred_dist = np.where(mask, pred_dist, Dist)
+        stress_matrix = np.where(mask, np.square((pred_dist - Dist) / Dist), Dist)
+        stress += np.sum(stress_matrix)
+    
+    return stress
+
 
 def draw_svg(x, gdata, output_name):
     print('Drawing visualization "{}"'.format(output_name))
@@ -37,6 +63,11 @@ def draw_svg(x, gdata, output_name):
 
 
 def main(args):
+    if (args.stress):
+        Dist_paths_arr = np.load(os.path.dirname(args.file) + '/Dist_paths.npy')
+        print(f"==== Finish Loading Dist_paths_arr: {Dist_paths_arr.shape} ====") # [num_paths, num_nodes, num_nodes]
+
+
     use_cuda = args.cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     print(f"==== Device: {device}; Dataset: {args.file} ====")
@@ -67,6 +98,11 @@ def main(args):
     # print(f"==== Config: num_threads: {torch.get_num_threads()}; num_interop_threads: {torch.get_num_interop_threads()} ====")
 
     x = torch.rand([n,2,2], dtype=torch.float64, device=device)
+
+    if (args.stress):
+        initial_stress = compute_stress(x.cpu().detach().numpy().reshape(n*2,2), Dist_paths_arr)
+        print(f"initial stress: {initial_stress:.2e}")
+
 
     start = time.time()
     
@@ -138,6 +174,9 @@ def main(args):
             transfer_time += transfer_end - transfer_start
             compute_time += compute_end - compute_start
 
+        if (args.stress):
+            stress = compute_stress(x.cpu().detach().numpy().reshape(n*2,2), Dist_paths_arr)
+            print(f"Iteration {iteration+1} Done.  Stress: {stress:.2e}")
 
         if ((iteration+1) % 5) == 0 and args.create_iteration_figs == True:
             x_np = x.cpu().clone().detach().numpy()
@@ -160,6 +199,7 @@ if __name__ == "__main__":
     parser.add_argument('--file', type=str, default='tiny_pangenome.og', help='odgi variation graph')
     parser.add_argument('--create_iteration_figs', action='store_true', help='create at each 5 iteration a figure of the current state')
     parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
+    parser.add_argument('--stress', action='store_true', default=False, help='compute stress')
     args = parser.parse_args()
     print(args)
     main(args)
