@@ -6,6 +6,7 @@ import sys
 import os
 import math
 from datetime import datetime
+import time
 
 import torch
 import numpy as np
@@ -67,7 +68,7 @@ def main(args):
 
     x = torch.rand([n,2,2], dtype=torch.float64, device=device)
 
-    start = datetime.now()
+    start = time.time()
     
     compute_time = 0
     transfer_time = 0
@@ -77,7 +78,7 @@ def main(args):
         print("Computing iteration", iteration + 1, "of", num_iter + 1, eta)
         
         for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data):
-            
+            # breakpoint()
 
             # pytorch model as close as possible to odgi implementation
 
@@ -85,13 +86,14 @@ def main(args):
             # dataloader computes it as w = 1 / dis^2
             # ***** Interesting NOTE (found by Jiajie): ODGI uses as weight 1/dis; while original graph drawing paper uses 1/dis^2
             
-            
-            transfer_start = datetime.now()
+            transfer_start = time.time()
             # to cuda
             dis = dis.to(device)
-            transfer_end = datetime.now()
+            if (device == torch.device("cuda")):
+                torch.cuda.synchronize()
+            transfer_end = time.time()
 
-            compute_start = datetime.now()
+            compute_start = time.time()
             w = 1 / dis
 
             mu = eta * w
@@ -129,24 +131,26 @@ def main(args):
             #     # breakpoint()
             #     raise ValueError(f"Iter[{iteration}] Step[{batch_idx}]. x: {x} is NaN. mag: {mag}")
 
-            compute_end = datetime.now()
+            if (device == torch.device("cuda")):
+                torch.cuda.synchronize()
+            compute_end = time.time()
 
-            transfer_time += (transfer_end - transfer_start).total_seconds()
-            compute_time += (compute_end - compute_start).total_seconds()
+            transfer_time += transfer_end - transfer_start
+            compute_time += compute_end - compute_start
 
 
         if ((iteration+1) % 5) == 0 and args.create_iteration_figs == True:
             x_np = x.cpu().clone().detach().numpy()
             draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_iter{iteration+1}")
 
-    end = datetime.now()
-    overall_time = (end-start).total_seconds()
+    end = time.time()
+    overall_time = end-start
     dataload_time = overall_time - compute_time - transfer_time
     print(f"Overall time {overall_time:.2f} sec; Dataloading time: {dataload_time:.2f} sec; Computation time: {compute_time:.2f} sec; Data Transfer time: {transfer_time:.2f} sec")
 
-    x_np = x.cpu().detach().numpy()
-    OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
-    draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_final")
+    # x_np = x.cpu().detach().numpy()
+    # OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
+    # draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_final")
 
 
 if __name__ == "__main__":
