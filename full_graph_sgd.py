@@ -62,8 +62,9 @@ class PlaceEngine(nn.Module):
 
         # self.dist = dist # [num_nodes, num_nodes]
         
-        self.optimizer = torch.optim.Adam(self.parameters(), lr=LR)
-        # self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-2)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=LR) # Adam -> Loss = 3.75e4
+        # self.optimizer = torch.optim.SGD(self.parameters(), lr=LR, momentum=0.9, nesterov=True) # Nesterov momentum
+        # self.optimizer = torch.optim.SGD(self.parameters(), lr=1e-2) # SGD
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=10, eta_min=1e-2)
     
     def gradient_step(self, dist):
@@ -93,6 +94,7 @@ class PlaceEngine(nn.Module):
         mask = dist.ne(0)
         pred_dist = torch.where(mask, pred_dist, dist)
         stress_matrix = torch.where(mask, torch.square((pred_dist - dist) / dist), dist) # [num_nodes, num_nodes]. Actually, this involves with redundant computation. (The matrix is symmetric)
+        # stress_matrix = torch.where(mask, torch.square(pred_dist - dist), dist) # try no weight
         stress = torch.sum(stress_matrix)
         
         return stress
@@ -144,7 +146,7 @@ def main(args):
         mod.scheduler.step() # learning rate scheduler
 
         if i % LOG_INTERVAL == 0:
-            print(f"step {i}/{STEPS}: {stress}")
+            print(f"step {i}/{STEPS}: {stress:.1f}")
             stress_rec[i//LOG_INTERVAL] = stress.item()
 
         if args.draw and i % DRAW_INTERVAL == 0:

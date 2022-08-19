@@ -1,7 +1,25 @@
+# python graphdraw.py figures/qh882/qh882.mat
 import scipy.io as io
 import sys
 import argparse
 import os
+
+def compute_stress(positions, d):
+    '''
+    Compute stress in a redundant way -- consistent with `full_graph_sgd.py`, compute TWICE. 
+    '''
+    stress = 0
+    n = d.shape[0]
+    for i in range(n):
+        for j in range(n):
+            if i == j:
+                continue
+            pq = positions[i] - positions[j]
+            mag = np.linalg.norm(pq)
+            stress += (1/d[i,j]**2) * (d[i,j]-mag)**2
+    return stress
+
+
 
 parser = argparse.ArgumentParser("Graph Drawing SGD Algorithm")
 parser.add_argument("input_file", type=str, help="input graph name")
@@ -97,7 +115,8 @@ for c_idx, c in enumerate(schedule):
         positions[i] += m
         positions[j] -= m
 
-    print(f'Iteration {c_idx} Done')
+    stress = compute_stress(positions, d)
+    print(f'Iteration {c_idx}: Stress = {stress:.1f}')
 
 end = datetime.datetime.now()
 print(end - start)
@@ -120,14 +139,18 @@ for i,j in zip(*graph.nonzero()):
 lc = mc.LineCollection(lines, linewidths=1, colors='k', alpha=.5)
 ax.add_collection(lc)
 
-plt.savefig(args.input_file.replace('.mat', '.svg'), format='svg', dpi=1000)
+plt.savefig(args.input_file.replace('.mat', '.png'), format='svg', dpi=1000)
 
 stress = 0
-for i in range(n):
-    for j in range(i):
-        pq = positions[i] - positions[j]
-        mag = np.linalg.norm(pq)
+# calculate the stress
+# for i in range(n):
+#     for j in range(i):
+#         pq = positions[i] - positions[j]
+#         mag = np.linalg.norm(pq)
         
-        stress += (1/d[i,j]**2) * (d[i,j]-mag)**2
-        
-print(f'stress = {stress}')
+#         stress += (1/d[i,j]**2) * (d[i,j]-mag)**2
+
+# calculate the stress in a redundant way -- consistent with `full_graph_sgd.py`
+stress = compute_stress(positions, d)
+print(f'stress = {stress:.1f}')
+# print(f'stress = {stress:.2e}')

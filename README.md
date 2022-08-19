@@ -22,7 +22,7 @@ The goal is to get the visualization of the graph.
         ```
     - Very slow. 
 - `full_graph_sgd.py`
-    - Full Graph update. It just compute the overall stress function, and compute the gradient and update. It partly works on the general graph (some SuitSparse testcases): can generate reasonable viz graph, but the stress is larger than the optimal one. 
+    - Full Graph update. It just compute the overall stress function, and compute the gradient and update. It partly works on the general graph (some SuitSparse testcases): can generate reasonable viz graph, and reach the same stress as `graphdraw.py`. 
     - Super fast. 
     - Can try different optimizers (Adam, SGD) and learning rate scheduler. The code didn't follow the original algorithm. It didn't have a `cap` operation to regulate the learning rate for each pairwise currently. 
 - `odgi_dataset.py`, `odgi_batch_sgd.py`
@@ -47,6 +47,10 @@ We would evaluate on two aspects:
 ### Iter_num = 15
 - Time: 50.07s
 - Result: `output/qh882.svg`; Stress = 18736
+
+## `full_graph_update.py`
+- Time: 0.73s for 1000 steps on GPU. 
+- Result: `figures/qh882/animation.gif`; Stress = 18686
 
 ## Batch SGD. 
 ### Batch Size = 1. Iter_num = 15
@@ -104,6 +108,10 @@ Iter_num = 15.
 - Time: 57.7s
 - Stress: 18737
 
+### `full_graph_update.py`
+- Time: 0.73s for 1000 steps on GPU. 
+- Result: `figures/qh882/animation.gif`; Stress = 18686
+
 ###  Batch SGD.
 Initial Stress = 349943
 
@@ -132,6 +140,11 @@ Initial Stress = 349943
 Iter_num = 15. 
 - Time: 35min 48s
 - Stress: 679064
+
+### `full_graph_update.py`
+- Time: 12s for 1000 steps on GPU. 
+- Result: `figures/qh882/animation.gif`; Stress = 678968.4
+
 
 ### Batch SGD.
 
