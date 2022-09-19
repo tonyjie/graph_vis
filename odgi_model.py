@@ -34,7 +34,8 @@ def compute_stress(pos, Dist_paths):
         Dist = Dist_paths[i, :, :]
         mask = np.not_equal(Dist, 0)
         pred_dist = np.where(mask, pred_dist, Dist)
-        stress_matrix = np.where(mask, np.square((pred_dist - Dist) / Dist), Dist)
+        # stress_matrix = np.where(mask, np.square((pred_dist - Dist) / Dist), Dist) # w = 1/(d**2)
+        stress_matrix = np.where(mask, np.square(pred_dist - Dist) / Dist, Dist)  # w = 1/d
         stress += np.sum(stress_matrix)
     
     return stress
@@ -57,15 +58,15 @@ def draw_svg(x, gdata, output_name):
     # for i in range(gdata.get_node_count()):
     #     plt.text(np.mean(x[i,:,0]), np.mean(x[i,:,1]), i+1)
 
-    plt.axis("off")
+    # plt.axis("off")
     plt.savefig(output_name + '.png', format='png', dpi=1000, bbox_inches="tight")
     plt.close()
 
 
 def main(args):
-    if (args.stress):
-        Dist_paths_arr = np.load(os.path.dirname(args.file) + '/Dist_paths.npy')
-        print(f"==== Finish Loading Dist_paths_arr: {Dist_paths_arr.shape} ====") # [num_paths, num_nodes, num_nodes]
+    # if (args.stress):
+    Dist_paths_arr = np.load(os.path.dirname(args.file) + '/Dist_paths.npy')
+    print(f"==== Finish Loading Dist_paths_arr: {Dist_paths_arr.shape} ====") # [num_paths, num_nodes, num_nodes]
 
 
     use_cuda = args.cuda and torch.cuda.is_available()
@@ -99,9 +100,9 @@ def main(args):
 
     x = torch.rand([n,2,2], dtype=torch.float64, device=device)
 
-    if (args.stress):
-        initial_stress = compute_stress(x.cpu().detach().numpy().reshape(n*2,2), Dist_paths_arr)
-        print(f"initial stress: {initial_stress:.2e}")
+    # if (args.stress):
+    initial_stress = compute_stress(x.cpu().detach().numpy().reshape(n*2,2), Dist_paths_arr)
+    print(f"initial stress: {initial_stress:.2e}")
 
 
     start = time.time()
@@ -133,7 +134,8 @@ def main(args):
             w = 1 / dis
 
             mu = eta * w
-            mu_m = torch.min(mu, torch.ones_like(mu))
+            # mu_m = mu
+            mu_m = torch.min(mu, torch.ones_like(mu)) # capping mu to 1
 
             x_i = x[i-1,vis_p_i,0]
             x_j = x[j-1,vis_p_j,0]
@@ -163,9 +165,9 @@ def main(args):
             x[i-1, vis_p_i, 1] = x[i-1, vis_p_i, 1] - r_y
             x[j-1, vis_p_j, 1] = x[j-1, vis_p_j, 1] + r_y
 
-            # if (torch.isnan(x).any()):
-            #     # breakpoint()
-            #     raise ValueError(f"Iter[{iteration}] Step[{batch_idx}]. x: {x} is NaN. mag: {mag}")
+            if (torch.isnan(x).any()):
+                breakpoint()
+                raise ValueError(f"Iter[{iteration}] Step[{batch_idx}]. x: {x} is NaN. mag: {mag}. mu_m: {mu_m}. ")
 
             if (device == torch.device("cuda")):
                 torch.cuda.synchronize()
@@ -187,9 +189,14 @@ def main(args):
     dataload_time = overall_time - compute_time - transfer_time
     print(f"Overall time {overall_time:.2f} sec; Dataloading time: {dataload_time:.2f} sec; Computation time: {compute_time:.2f} sec; Data Transfer time: {transfer_time:.2f} sec")
 
-    # x_np = x.cpu().detach().numpy()
-    # OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
-    # draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_final")
+    # final stress
+    stress = compute_stress(x.cpu().detach().numpy().reshape(n*2,2), Dist_paths_arr)
+    print(f"Final Stress: {stress:.2e}")
+
+
+    x_np = x.cpu().detach().numpy()
+    OdgiInterface.generate_layout_file(data.get_graph(), x_np, os.path.dirname(args.file) + "/layout.lay")
+    draw_svg(x_np, data, f"{os.path.dirname(args.file)}/out_final")
 
 
 if __name__ == "__main__":

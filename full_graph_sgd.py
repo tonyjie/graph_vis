@@ -157,10 +157,13 @@ def main(args):
 
     print(f"==== Training time: {end - start}; Step: {STEPS}; Device: {device} ====")
 
-    # === draw learning curve ===
-    fig, ax = plt.subplots()
-    ax.plot(np.linspace(0, STEPS, STEPS//LOG_INTERVAL), stress_rec)
-    plt.savefig(f"{os.path.dirname(args.input_file)}/learning_curve.png")
+    # # === draw learning curve ===
+    # fig, ax = plt.subplots()
+    # ax.plot(np.linspace(0, STEPS, STEPS//LOG_INTERVAL), stress_rec)
+    # ax.set_xlabel('Step')
+    # ax.set_ylabel('Stress')
+    # ax.set_yscale('log')
+    # plt.savefig(f"{os.path.dirname(args.input_file)}/learning_curve.png")
 
 
     if args.draw:

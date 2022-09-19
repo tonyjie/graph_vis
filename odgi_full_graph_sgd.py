@@ -100,8 +100,11 @@ class PlaceEngine(nn.Module):
         for i in range(num_paths):
             dist = Dist_paths[i, :, :]
             mask = dist.ne(0)
-            pred_dist = torch.where(mask, pred_dist, dist)
-            stress_matrix = torch.where(mask, torch.square((pred_dist - dist) / dist), dist) # [num_nodes, num_nodes]. Actually, this involves with redundant computation. (The matrix is symmetric)
+            pred_dist_mask = torch.where(mask, pred_dist, dist)
+            # pred_dist = torch.where(mask, pred_dist, dist)
+            # stress_matrix = torch.where(mask, torch.square(pred_dist - dist), dist) # no w as weight
+            stress_matrix = torch.where(mask, torch.square((pred_dist_mask - dist) / dist), dist) # w=1/d**2 setting     # [num_nodes, num_nodes]. Actually, this involves with redundant computation. (The matrix is symmetric)
+            # stress_matrix = torch.where(mask, torch.square(pred_dist - dist) / dist, dist)  # w = 1/d
             stress += torch.sum(stress_matrix)
         
         return stress
@@ -203,7 +206,7 @@ def main(args):
         mod.scheduler.step() # learning rate scheduler
 
         if i % LOG_INTERVAL == 0:
-            print(f"step {i}/{STEPS}: {stress}")
+            print(f"step {i}/{STEPS}: {stress:.2e}")
             stress_rec[i//LOG_INTERVAL] = stress.item()
 
         if args.draw and i % DRAW_INTERVAL == 0:
@@ -219,9 +222,14 @@ def main(args):
 
 
     # === draw learning curve ===
-    # fig, ax = plt.subplots()
-    # ax.plot(np.linspace(0, STEPS, STEPS//LOG_INTERVAL), stress_rec)
-    # plt.savefig(f"{os.path.dirname(args.input_file)}/learning_curve.png")
+    fig, ax = plt.subplots()
+    ax.plot(np.linspace(0, STEPS, STEPS//LOG_INTERVAL), stress_rec)
+    ax.set_xlabel('Step')
+    ax.set_ylabel('Stress')
+    ax.set_yscale('log')
+    ax.set_title('Stress Curve: Full Graph Update')
+    plt.tight_layout()
+    plt.savefig(f"{os.path.dirname(args.input_file)}/stress_curve_odgi_full_graph_sgd.png")
 
 
     if args.draw:
