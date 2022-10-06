@@ -146,7 +146,7 @@ def main(args):
         dataload_iter = 0
         dataload_start = time.time()
 
-        for batch_idx, (i, j, vis_p_i, vis_p_j, _w, dis) in enumerate(data): # (i,j) start from 1; vis_p_i, vis_p_j is in {0,1}
+        for batch_idx, (vis_i, vis_j, _w, dis) in enumerate(data): # (i,j) start from 1; vis_p_i, vis_p_j is in {0,1}
             dataload_iter += time.time() - dataload_start
 
             if (device == torch.device("cuda")):
@@ -162,13 +162,13 @@ def main(args):
             with torch.no_grad():
                 w = 1 / dis # torch.clamp in-place. 
                 mu = torch.min(w * eta, torch.ones_like(w)) # torch.ones_like() move out. Shape is consistent. 
-                diff = pos[(i-1)*2 + vis_p_i] - pos[(j-1)*2 + vis_p_j] # maybe cpu -> gpu for those index is time-consuming?
+                diff = pos[vis_i] - pos[vis_j] # maybe cpu -> gpu for those index is time-consuming?
                 mag = torch.norm(diff, dim=1)
                 mag = torch.max(mag, torch.ones_like(mag)*1e-9) # avoid mag = 0, will cause NaN
                 r = (dis - mag) / 2
                 update = torch.unsqueeze(mu * r / mag, dim=1) * diff
-                pos[(i-1)*2 + vis_p_i] += update
-                pos[(j-1)*2 + vis_p_j] -= update # memory contention?
+                pos[vis_i] += update
+                pos[vis_j] -= update # memory contention?
 
             if (device == torch.device("cuda")):
                 torch.cuda.synchronize()
@@ -220,6 +220,7 @@ if __name__ == "__main__":
     parser.add_argument('--lay', action='store_true', default=False, help='generate .lay file for ODGI to draw')
     parser.add_argument('--cuda', action='store_true', default=False, help='use cuda')
     parser.add_argument('--log_interval', type=int, default=10, help='log interval')
+    parser.add_argument('--nthreads', type=int, default=1)
     args = parser.parse_args()
     print(args)
     main(args)

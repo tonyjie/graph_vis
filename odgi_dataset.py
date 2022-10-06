@@ -26,7 +26,7 @@ class OdgiTorchDataset(torch.utils.data.Dataset):
 
 
 class OdgiDataloader:
-    def __init__(self, file_name, batch_size=1, zipf_theta=0.99, space_max=1000, space_quantization_step=100, first_cooling_iteration=15):
+    def __init__(self, file_name, batch_size=1, zipf_theta=0.99, space_max=1000, space_quantization_step=100, first_cooling_iteration=15, nthreads=1):
         self.batch_size = batch_size
         self.zipf_theta = zipf_theta
         self.space_max = space_max
@@ -35,6 +35,8 @@ class OdgiDataloader:
 
         self.batch_counter = 0
         self.iteration = 1
+
+        self.nthreads = nthreads
 
         self.g = odgi_load_graph(file_name)
 
@@ -71,10 +73,10 @@ class OdgiDataloader:
         cooling = False
         if self.iteration >= self.first_cooling_iter :
             cooling = True
-        (i_np, j_np, vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling)
+        (vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling, self.nthreads)
         w_np = np.empty(self.batch_size, dtype=np.float)
         w_np = 1.0 / (d_np**2)
-        return i_np, j_np, vis_i_np, vis_j_np, w_np, d_np
+        return vis_i_np, vis_j_np, w_np, d_np
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -98,8 +100,8 @@ class OdgiDataloader:
             raise StopIteration
         else :
             self.batch_counter = self.batch_counter + 1
-            (i_np, j_np, vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
-            return torch.from_numpy(i_np), torch.from_numpy(j_np), torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
+            (vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
+            return torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
 
 
 class OdgiInterface:
