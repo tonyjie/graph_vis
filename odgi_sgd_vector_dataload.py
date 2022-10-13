@@ -59,7 +59,7 @@ def main(args):
 
 
     # # ========== Load Graph, Get Constraints ============
-    data = OdgiDataloader(args.input_file, batch_size=args.batch_size) # set batch size
+    data = OdgiDataloader(args.input_file, batch_size=args.batch_size, nthreads=args.nthreads) # set batch size
 
 
     num_pangenome_nodes = data.get_node_count()
@@ -146,7 +146,7 @@ def main(args):
         dataload_iter = 0
         dataload_start = time.time()
 
-        for batch_idx, (vis_i, vis_j, _w, dis) in enumerate(data): # (i,j) start from 1; vis_p_i, vis_p_j is in {0,1}
+        for batch_idx, (vis_i, vis_j, dis) in enumerate(data): # (i,j) start from 1; vis_p_i, vis_p_j is in {0,1}
             dataload_iter += time.time() - dataload_start
 
             if (device == torch.device("cuda")):

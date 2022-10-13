@@ -73,10 +73,7 @@ class OdgiDataloader:
         cooling = False
         if self.iteration >= self.first_cooling_iter :
             cooling = True
-        (vis_i_np, vis_j_np, d_np) = odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling, self.nthreads)
-        w_np = np.empty(self.batch_size, dtype=np.float)
-        w_np = 1.0 / (d_np**2)
-        return vis_i_np, vis_j_np, w_np, d_np
+        return odgi_get_random_node_numpy_batch(self.rnd_node_gen, self.batch_size, cooling, self.nthreads)
 
     def set_batch_size(self, batch_size):
         self.batch_size = batch_size
@@ -100,8 +97,8 @@ class OdgiDataloader:
             raise StopIteration
         else :
             self.batch_counter = self.batch_counter + 1
-            (vis_i_np, vis_j_np, w_np, d_np) = self.get_random_node_numpy_batch()
-            return torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(w_np), torch.from_numpy(d_np)
+            (vis_i_np, vis_j_np, d_np) = self.get_random_node_numpy_batch()
+            return torch.from_numpy(vis_i_np), torch.from_numpy(vis_j_np), torch.from_numpy(d_np)
 
 
 class OdgiInterface:
