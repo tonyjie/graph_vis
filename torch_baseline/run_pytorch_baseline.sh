@@ -1,7 +1,11 @@
 #!/bin/bash
-HOME_DIR=/home/jl4257/Project/Pangenomics/graph_vis/data_pangenome/DRB1-3123
-BATCH_SIZE=1000
-commands="env CUDA_VISIBLE_DEVICES=2 LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=${HOME}/odgi_niklas/lib python odgi_real_batch_sgd.py /home/jl4257/Project/Pangenomics/graph_vis/data_pangenome/DRB1-3123/DRB1-3123.og --num_iter 30 --batch_size ${BATCH_SIZE} --cuda --log_interval 20"
+# Usage: bash run_pytorch_baseline.sh DRB1-3123 1000
+CHRM_NAME=$1 # DRB1-3123, mhc
+BATCH_SIZE=$2
+HOME_DIR=/home/jl4257/Project/Pangenomics/graph_vis/data_pangenome/${CHRM_NAME}
+OG_FILE=${HOME_DIR}/${CHRM_NAME}.og
+set -x
+commands="env CUDA_VISIBLE_DEVICES=2 LD_PRELOAD=/lib/x86_64-linux-gnu/libjemalloc.so PYTHONPATH=${HOME}/odgi_niklas/lib python odgi_real_batch_sgd.py ${OG_FILE} --num_iter 30 --batch_size ${BATCH_SIZE} --cuda --log_interval 2000 --lay"
 WORK_DIR=${HOME_DIR}/batch_size=${BATCH_SIZE}
 mkdir -p ${WORK_DIR}
 LOG_FILE=${WORK_DIR}/log.txt

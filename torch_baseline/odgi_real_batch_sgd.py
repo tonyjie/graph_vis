@@ -18,7 +18,7 @@ from odgi_dataset import OdgiInterface, OdgiDataloader
 import torch.profiler as profiler
 
 PRINT_LOG = True
-PROFILE = False
+PROFILE = True
 PYTORCH_PROFILE = False
 
 class PlaceEngine(nn.Module):
@@ -59,7 +59,11 @@ class PlaceEngine(nn.Module):
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = self.lr_schedule[iter]
         self.optimizer.step()
-
+        
+        if (torch.isnan(self.pos).any()):
+            breakpoint()
+            raise ValueError(f"nan found in pos: {self.pos}\n stress: {stress}\n dis: {dis} \n i: {i} \n j: {j} \n vis_p_i: {vis_p_i} \n vis_p_j: {vis_p_j} \n iter: {iter}")
+        return stress
 
 
 
@@ -131,7 +135,7 @@ def main(args):
     print(f"==== eta_max: {eta_max}; eta_min: {eta_min} ====") # eta_max: 9610000.0; eta_min: 0.1
     print(f"==== w_max: {w_max}; w_min: {w_min} ====") # w_max: 1.0; w_min: 1.0405827263267429e-07
 
-    lambd = np.log(eta_min / eta_max) / (num_iter - 1)
+    lambd = np.log(eta_min / eta_max) / (num_iter)
     eta = lambda t: eta_max*np.exp(lambd*t)
 
     # set up the schedule as an exponential decay
@@ -139,7 +143,7 @@ def main(args):
     for i in range(num_iter):
         schedule.append(eta(i))
 
-    # print(f"==== Schedule: {schedule} ====")
+    print(f"==== Schedule: {schedule} ====")
     # ==== Schedule: [9610000.0, 5098671.8762682425, 2705146.191659597, 1435239.626286049, 761479.2838970263, 404009.6783732206, 214350.96616667203, 113725.8317216375, 60338.26220648574, 32013.00734392382, 16984.788784519576, 9011.43235171553, 4781.09643044597, 2536.6536844579973, 1345.8444121517387, 714.049849539109, 378.8455656710329, 200.9999199933225, 106.6423141729574, 56.58003830320708, 30.019047872501766, 15.926875664919333, 8.450147037413661, 4.483301462017946, 2.378655887328116, 1.2620172607741673, 0.6695746009234478, 0.35524882276710884, 0.18848045595422055, 0.09999999999999998] ====
 
 
@@ -147,6 +151,12 @@ def main(args):
     # ODGI's initialization is not random actually. 
     # pos = torch.empty((num_nodes, 2), dtype=torch.float32, requires_grad=True, device=device)
     # nn.init.uniform_(pos)
+
+    pos = data.get_init_pos()
+    # set pos on device, requires_grad=True
+    pos = torch.tensor(pos, dtype=torch.float32, requires_grad=True, device=device)
+    print(f"==== Finish Loading Init Pos: {pos.shape} ====") # [num_nodes, 2]
+    print(f"pos: {pos}")
 
     mod = PlaceEngine(num_nodes, schedule)
     mod = mod.to(device)
@@ -231,13 +241,13 @@ def main(args):
                 compute_start = time.time()
 
             # ======== Wrap up within Pytorch nn.Module =======
-            mod.gradient_step(i, j, vis_p_i, vis_p_j, dis, iter)
-
+            stress_sum = mod.gradient_step(i, j, vis_p_i, vis_p_j, dis, iter)
 
 
             # ========= Gradient Update Implementation ========
             # diff = pos[(i-1)*2 + vis_p_i] - pos[(j-1)*2 + vis_p_j]
             # mag = torch.norm(diff, dim=1)
+            # mag = torch.max(mag, torch.ones_like(mag)*1e-9) # avoid mag = 0, will cause NaN
             # coeff = 1 / (4 * torch.max(dis, torch.tensor(eta)))
             # stress = coeff * (mag - dis) ** 2
             # # sum up the stress for each node
@@ -245,6 +255,10 @@ def main(args):
             # stress_sum.backward()
             # pos.data.sub_(eta * pos.grad.data)
             # pos.grad.data.zero_()
+
+            # if (torch.isnan(pos).any()):
+            #     # breakpoint()
+            #     raise ValueError(f"nan found in pos: {pos}\n stress: {stress}\n dis: {dis} \n i: {i} \n j: {j} \n vis_p_i: {vis_p_i} \n vis_p_j: {vis_p_j} \n iter: {iter}")
 
 
 
@@ -267,7 +281,7 @@ def main(args):
 
             if PRINT_LOG:
                 if batch_idx % args.log_interval == 0:
-                    print(f"Iteration[{iter}]: {batch_idx}/{data.steps_in_iteration() // args.batch_size}")
+                    print(f"Iteration[{iter}]: {batch_idx}/{data.steps_in_iteration() // args.batch_size}. Stress: {stress_sum.item():.2f}")
 
             if PROFILE:
                 dataload_start = time.time()

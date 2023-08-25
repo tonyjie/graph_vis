@@ -43,8 +43,8 @@ class OdgiDataloader:
 
         self.rnd_node_gen = odgi_create_rnd_node_generator(self.g, self.zipf_theta, self.space_max, self.space_quantization_step)
 
-        self.path_names = []
-        odgi_for_each_path_handle(self.g, lambda p: self.path_names.append(odgi_get_path_name(self.g, p)))
+        # self.path_names = []
+        # odgi_for_each_path_handle(self.g, lambda p: self.path_names.append(odgi_get_path_name(self.g, p)))
 
         sizes = []
         odgi_for_each_path_handle(self.g, lambda p: sizes.append(odgi_get_step_in_path_count(self.g, p)))
@@ -87,6 +87,14 @@ class OdgiDataloader:
 
     def get_graph(self):
         return self.g
+
+    def get_init_pos(self):
+        (pos_x, pos_y) = odgi_get_init_pos_numpy(self.g)
+        pos_x = torch.from_numpy(pos_x)
+        pos_y = torch.from_numpy(pos_y)
+        # pos shape = [node_count, 2]; pos_x shape = [node_count]; pos_y shape = [node_count]
+        pos = torch.stack((pos_x, pos_y), dim=1)
+        return pos
 
     def __iter__(self):
         self.batch_counter = 0
